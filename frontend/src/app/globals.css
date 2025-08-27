@@ -1,0 +1,321 @@
+:root {
+  --background: #f8fafc;
+  --foreground: #171717;
+  --card-bg: #fff;
+  --card-border: #e9ecef;
+  --input-bg: #fff;
+  --input-border: #ced4da;
+  --nav-bg: #fff;
+  --nav-fg: #171717;
+  --sidebar-bg: #fff;
+  --sidebar-fg: #171717;
+  --sidebar-active-bg: #e6f0ea;
+  --sidebar-active-fg: #198754;
+  --table-bg: #fff;
+  --table-fg: #171717;
+  --table-header-bg: #f8fafc;
+  --table-header-fg: #171717;
+  --tab-bg: #fff;
+  --tab-fg: #212529;
+  --tab-active-bg: #198754;
+  --tab-active-fg: #fff;
+}
+
+[data-theme='dark'] {
+  --background: #181a1b;
+  --foreground: #ededed;
+  --card-bg: #23272b;
+  --card-border: #343a40;
+  --input-bg: #23272b;
+  --input-border: #495057;
+  --nav-bg: #23272b;
+  --nav-fg: #ededed;
+  --sidebar-bg: #181a1b;
+  --sidebar-fg: #ededed;
+  --sidebar-active-bg: #23272b;
+  --sidebar-active-fg: #22b573;
+  --table-bg: #23272b;
+  --table-fg: #ededed;
+  --table-header-bg: #181a1b;
+  --table-header-fg: #ededed;
+  --tab-bg: #23272b;
+  --tab-fg: #ededed;
+  --tab-active-bg: #22b573;
+  --tab-active-fg: #fff;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+.bg-gradient-primary-overlay {
+  background: linear-gradient(to right, rgba(13, 110, 253, 0.8), rgba(13, 110, 253, 0.6));
+}
+
+.card {
+  border-radius: 14px !important;
+  background: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+  color: var(--foreground) !important;
+}
+
+.card-header {
+  border-bottom: 1px solid var(--card-border) !important;
+  background: var(--card-bg) !important;
+  color: var(--foreground) !important;
+}
+
+.nav-tabs .nav-link.active {
+  background: var(--tab-active-bg) !important;
+  color: var(--tab-active-fg) !important;
+  border: none !important;
+}
+
+.nav-tabs .nav-link {
+  background: var(--tab-bg) !important;
+  color: var(--tab-fg) !important;
+  border: none !important;
+}
+
+.nav-tabs .nav-link:hover {
+  color: var(--foreground) !important;
+  background: var(--tab-bg) !important;
+}
+
+/* Chart placeholder image */
+img[src*='chart-placeholder'] {
+  background: #f1f3f6;
+  border-radius: 12px;
+  border: 1px dashed #cfd8dc;
+}
+
+.form-control, .form-select {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--foreground) !important;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+/* Custom top tab styles to match sidebar */
+.custom-top-tab {
+  background: var(--tab-bg) !important;
+  color: var(--tab-fg) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+}
+.custom-top-tab.active, .custom-top-tab.active:focus, .custom-top-tab.active:hover {
+  background: var(--tab-active-bg) !important;
+  color: var(--tab-active-fg) !important;
+}
+.custom-top-tab:hover, .custom-top-tab:focus {
+  background: var(--tab-bg) !important;
+  color: var(--tab-fg) !important;
+}
+
+.physical-referrals-card {
+  margin-top: 24px !important;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #198754 !important;
+  border-color: #198754 !important;
+  color: #fff !important;
+}
+
+.pagination .page-item .page-link {
+  color: #000 !important; /* Set non-active pagination text to black */
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+
+.pagination .page-item.disabled .page-link {
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+
+.form-check-input:checked {
+  background-color: #198754 !important;
+  border-color: #198754 !important;
+}
+
+.form-check-input:focus {
+  border-color: #198754;
+  box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
+}
+
+.user-management-table th, .user-management-table td {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.user-management-table {
+  border-collapse: collapse !important;
+}
+
+.modal-light-green-background {
+  background-color: #e6f0ea !important;
+}
+
+.modal-light-green-background .form-control {
+  background-color: #e6f0ea !important;
+  border: 1px solid #ced4da !important;
+}
+
+.modal-light-green-background .form-select {
+  background-color: #e6f0ea !important;
+  border: 1px solid #ced4da !important;
+}
+
+.btn.btn-cancel-light-green, .btn-cancel-light-green.btn {
+  color: #171717 !important;
+}
+
+.navbar {
+  background: var(--nav-bg) !important;
+  color: var(--nav-fg) !important;
+}
+
+.sidebar {
+  background: var(--sidebar-bg) !important;
+  color: var(--sidebar-fg) !important;
+}
+.sidebar .active,
+.sidebar .active * {
+  background: var(--sidebar-active-bg) !important;
+  color: var(--sidebar-active-fg) !important;
+}
+
+.table {
+  background: var(--table-bg) !important;
+  color: var(--table-fg) !important;
+}
+.table th, .table thead th {
+  background: var(--table-header-bg) !important;
+  color: var(--table-header-fg) !important;
+}
+.table td {
+  background: var(--table-bg) !important;
+  color: var(--table-fg) !important;
+}
+
+/* Ensure all text is readable */
+.text-black, .fw-bold, .fw-semibold, .fw-normal, .text-muted, .text-dark, .text-white {
+  color: var(--foreground) !important;
+}
+
+/* Misc fixes for dark mode */
+.input-group-text {
+  background: var(--input-bg) !important;
+  color: var(--foreground) !important;
+  border-color: var(--input-border) !important;
+}
+.btn, .btn-success, .btn-primary {
+  color: #fff !important;
+}
+
+/* Force green color for About section headings and check marks */
+.about-section-heading {
+  color: #38813A !important;
+}
+.about-section-check {
+  color: #3CB371 !important;
+  font-size: 1.2em;
+  margin-right: 8px;
+}
+
+.login-btn-green {
+  color: #4d8c1b !important;
+}
+
+.login-green-text {
+  color: #4d8c1b !important;
+}
+
+.login-yellow-text {
+  color: #ffe600 !important;
+}
+.login-white-text {
+  color: #fff !important;
+}
+
+.btn-progress-light-green {
+  color: #222 !important;
+}
+
+.text-teal {
+  color: #00bfae !important;
+}
+
+/* Custom override for Get Started button in student dashboard */
+.student-dashboard-get-started-btn {
+  color: #38813A !important;
+}
+
+.alert-tab-btn {
+  color: #000 !important;
+  background: #fff !important;
+}
+
+.icon-btn-square {
+  background: #fff !important;
+  border: 1px solid #dee2e6 !important;
+  border-radius: 4px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.icon-btn-square:hover {
+  background: #f8f9fa !important;
+}
+.icon-outlined {
+  color: #333 !important;
+  font-weight: 400 !important;
+}

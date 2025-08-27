@@ -1,0 +1,42 @@
+version: '2'
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: amieti
+      POSTGRES_USER: amieti
+      POSTGRES_PASSWORD: amieti
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    command: sh -c "python manage.py migrate && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8080 --noreload"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_NAME: amieti
+      DB_USER: amieti
+      DB_PASSWORD: amieti
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    # volumes:
+    #   - ./frontend:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

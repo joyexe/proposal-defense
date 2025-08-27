@@ -1,0 +1,53 @@
+# === PYTHON/DJANGO ===
+__pycache__/
+*.py[cod]
+*.log
+*.pot
+*.pyc
+*.sqlite3
+*.pyo
+*.db
+*.mo
+*.bak
+
+# Virtual environment
+env/
+venv/
+
+# Django migrations (optional)
+**/migrations/*.py
+**/migrations/*.pyc
+
+# Environment variables
+.env
+*.env
+
+# === NODE / NEXT.JS ===
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+
+# === STATIC FILES ===
+staticfiles/
+static/
+media/
+*.webp
+
+# === SYSTEM FILES ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# === POSTGRES / DATABASE ===
+*.sql
+*.dump
+
+# === LARGE MODEL FILES ===
+*.safetensors

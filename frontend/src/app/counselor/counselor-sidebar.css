@@ -1,0 +1,60 @@
+.counselor-sidebar {
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  min-height: 100vh;
+  transition: width 0.2s;
+}
+.counselor-sidebar .nav-link,
+.counselor-sidebar .nav-link:visited,
+.counselor-sidebar .nav-link:focus {
+  color: #222 !important;
+  background: none !important;
+  font-weight: 500;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+.counselor-sidebar .nav-link:hover,
+.counselor-sidebar .nav-link.active,
+.counselor-sidebar .nav .nav-link:hover,
+.counselor-sidebar .nav .nav-link.active {
+  background: #198754 !important;
+  color: #fff !important;
+  border: none !important;
+}
+.counselor-sidebar .nav-link i {
+  font-size: 1.3rem;
+}
+.counselor-sidebar .sidebar-top {
+  background: #fff;
+}
+.counselor-sidebar .sidebar-profile {
+  background: #fff;
+}
+.counselor-sidebar .profile-initials {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #198754 !important;
+  color: #fff !important;
+  font-size: 1.1rem;
+}
+.counselor-sidebar.collapsed {
+  width: 70px !important;
+}
+.counselor-sidebar.expanded {
+  width: 250px !important;
+}
+.counselor-sidebar.collapsed .nav-link span,
+.counselor-sidebar.collapsed .sidebar-profile span {
+  display: none !important;
+}
+@media (max-width: 768px) {
+  .counselor-sidebar {
+    position: fixed;
+    z-index: 1050;
+    height: 100vh;
+    left: 0;
+    top: 0;
+  }
+}

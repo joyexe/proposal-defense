@@ -1,0 +1,92 @@
+.faculty-sidebar {
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  min-height: 100vh;
+  transition: width 0.2s;
+}
+.faculty-sidebar .nav-link,
+.faculty-sidebar .nav-link:visited,
+.faculty-sidebar .nav-link:focus {
+  color: #222 !important;
+  background: none !important;
+  font-weight: 500;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+.faculty-sidebar .nav-link:hover,
+.faculty-sidebar .nav-link.active,
+.faculty-sidebar .nav .nav-link:hover,
+.faculty-sidebar .nav .nav-link.active {
+  background: #198754 !important;
+  color: #fff !important;
+  border: none !important;
+}
+.faculty-sidebar .nav-link i {
+  font-size: 1.3rem;
+}
+.faculty-sidebar .sidebar-top {
+  background: #fff;
+}
+.faculty-sidebar .sidebar-profile {
+  background: #fff;
+}
+.faculty-sidebar .profile-initials {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #198754 !important;
+  color: #fff !important;
+  font-size: 1.1rem;
+}
+.faculty-sidebar.collapsed {
+  width: 70px !important;
+}
+.faculty-sidebar.expanded {
+  width: 250px !important;
+}
+.faculty-sidebar.collapsed .nav-link span,
+.faculty-sidebar.collapsed .sidebar-profile span {
+  display: none !important;
+}
+@media (max-width: 768px) {
+  .faculty-sidebar {
+    position: fixed;
+    z-index: 1050;
+    height: 100vh;
+    left: 0;
+    top: 0;
+  }
+}
+
+/* Styles for Request Access Modal in Health Record Page */
+.faculty-access-modal .modal-content {
+    background-color: #e8ffe8 !important;
+}
+
+.faculty-access-modal .modal-header {
+    background-color: #e8ffe8 !important;
+}
+
+.faculty-access-modal .modal-body {
+    background-color: #e8ffe8 !important;
+}
+
+.faculty-access-modal .modal-footer {
+    background-color: #e8ffe8 !important;
+}
+
+.faculty-access-modal .form-control {
+    background-color: #e8ffe8 !important;
+}
+
+/* Specific styling for the actual radio button circle */
+.faculty-access-modal .form-check-input {
+    background-color: #e8ffe8 !important;
+    border-color: #198754 !important; /* Optional: Make border match green theme */
+}
+
+.faculty-access-modal .form-check-input:checked {
+    background-color: #198754 !important; /* Bootstrap success green */
+    border-color: #198754 !important;
+}
