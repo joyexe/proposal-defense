@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend as ChartLegend
 } from "chart.js";
-import { getPhysicalHealthTrends, getAppointments, getPermitRequests, exportPhysicalHealthPDF } from "../../../utils/api";
+import { getPhysicalHealthTrends, getAppointments, getPermitRequests, generateUnifiedAdminPDFReport } from "../../../utils/api";
 import { useRouter } from "next/navigation";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, ChartLegend);
@@ -42,8 +42,6 @@ export default function AdminPhysicalHealthAnalyticsPage() {
       const apiTimeRange = timeRange === 'month' ? 12 : timeRange; // Use 12 months for "Month" option to show Sep 2024 to Aug 2025
       const data = await getPhysicalHealthTrends(apiTimeRange);
       
-      setChartData(data);
-      
       // Store hybrid system status
       if (data.hybrid_system) {
         setHybridSystemStatus(data.hybrid_system);
@@ -53,6 +51,8 @@ export default function AdminPhysicalHealthAnalyticsPage() {
       if (data.predictive_analytics) {
         setPredictiveInsights(data.predictive_analytics);
       }
+      
+      setChartData(data);
     } catch (err) {
       console.error('Error loading physical health trends:', err);
       let errorMessage = 'Failed to load trends data';
@@ -228,7 +228,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
     };
   };
 
-  // Generate real-time predictive analytics insights based on chart data
+  // Generate real-time predictive analytics insights based on chart data and AI predictions
   const generateInsights = () => {
     if (!chartData || !chartData.datasets || chartData.datasets.length === 0) {
       return [
@@ -384,49 +384,29 @@ export default function AdminPhysicalHealthAnalyticsPage() {
 
   const summaryStats = getSummaryStats();
 
-  // Export functionality
+  // Export functionality using backend PDF generator
   const handleExport = async () => {
     try {
-      // Show loading state
-      const exportButton = document.querySelector('button[onClick="handleExport"]');
-      if (exportButton) {
-        const originalText = exportButton.innerHTML;
-        exportButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Exporting...';
-        exportButton.disabled = true;
-      }
-
-      const currentDate = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+      const response = await generateUnifiedAdminPDFReport(timeRange === 'month' ? 12 : timeRange);
       
-      const timeRangeText = timeRange === 'month' ? 'All Months' : 
-        timeRange === 1 ? 'Current Month' : 
-        timeRange === 3 ? 'Last 3 Months' : 
-        timeRange === 6 ? 'Last 6 Months' : 
-        timeRange === 12 ? 'Last Year' : 'Custom Range';
-
-      // Get time range for API call
-      const apiTimeRange = timeRange === 'month' ? 12 : timeRange;
-      
-      // Call backend PDF export
-      await exportPhysicalHealthPDF(apiTimeRange);
-
-      // Restore button state
-      if (exportButton) {
-        exportButton.innerHTML = originalText;
-        exportButton.disabled = false;
+      // Check if response is successful (status 200-299)
+      if (response.status >= 200 && response.status < 300) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mental_physical_health_report_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        console.error('PDF generation failed:', response.status, response.statusText);
+        alert('Failed to generate PDF report. Please try again.');
       }
-
     } catch (error) {
       console.error('Export error:', error);
-      // Restore button state on error
-      const exportButton = document.querySelector('button[onClick="handleExport"]');
-      if (exportButton) {
-        exportButton.innerHTML = '<span className="me-2" aria-hidden="true"><i className="bi bi-download" style={{ fontSize: 18, verticalAlign: "middle" }}></i></span>Export';
-        exportButton.disabled = false;
-      }
+      alert('Failed to export PDF. Please try again.');
     }
   };
 
@@ -436,27 +416,31 @@ export default function AdminPhysicalHealthAnalyticsPage() {
       return { min: 0, max: 5 };
     }
     
-    // Find the minimum and maximum values across all datasets
-    let minValue = Infinity;
-    let maxValue = -Infinity;
+    // For stacked area chart, we need to calculate the total stacked value for each month
+    let maxTotalValue = 0;
     
-    chartData.datasets.forEach(dataset => {
-      if (dataset.data && dataset.data.length > 0) {
-        const datasetMin = Math.min(...dataset.data);
-        const datasetMax = Math.max(...dataset.data);
-        
-        if (datasetMin < minValue) minValue = datasetMin;
-        if (datasetMax > maxValue) maxValue = datasetMax;
+    if (chartData.labels && chartData.labels.length > 0) {
+      for (let i = 0; i < chartData.labels.length; i++) {
+        let monthTotal = 0;
+        chartData.datasets.forEach(dataset => {
+          if (dataset.data && dataset.data[i] !== undefined) {
+            monthTotal += dataset.data[i] || 0;
+          }
+        });
+        if (monthTotal > maxTotalValue) maxTotalValue = monthTotal;
       }
-    });
+    }
     
     // If no valid data found, use defaults
-    if (minValue === Infinity || maxValue === -Infinity) {
+    if (maxTotalValue === 0) {
       return { min: 0, max: 5 };
     }
     
-    // Ensure max value is at least 1 more than the actual max to avoid duplicate labels
-    const adjustedMax = Math.max(maxValue + 1, 5);
+    // Set Y-axis to accommodate the maximum total value with some padding
+    let adjustedMax = Math.max(maxTotalValue + 2, 20);
+    
+    // Round up to nearest 10 for cleaner tick marks
+    adjustedMax = Math.ceil(adjustedMax / 10) * 10;
     
     return {
       min: 0, // Always start from 0
@@ -471,7 +455,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <div className="fw-bold fs-5 mb-1">System Overview</div>
-          <div className="text-muted" style={{ fontSize: 15 }}>Enhanced NLP-powered analytics with multi-language support</div>
+          <div className="text-muted" style={{ fontSize: 15 }}>Key performance indicators and trends</div>
         </div>
         <div className="d-flex align-items-center gap-2">
           <div style={{ position: 'relative', width: 180 }}>
@@ -482,7 +466,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
               onChange={(e) => handleTimeRangeChange(e.target.value)}
               aria-label="Select time range"
             >
-              <option value="month">All</option>
+              <option value="month">All Months</option>
               <option value={1}>Current Month</option>
               <option value={3}>Last 3 Months</option>
               <option value={6}>Last 6 Months</option>
@@ -504,22 +488,6 @@ export default function AdminPhysicalHealthAnalyticsPage() {
           </button>
         </div>
       </div>
-      
-      {/* Enhanced NLP System Status */}
-      {hybridSystemStatus && (
-        <div className="alert alert-info mb-4" role="alert">
-          <div className="d-flex align-items-center">
-            <i className="bi bi-robot me-2" style={{ fontSize: 20 }}></i>
-            <div>
-              <strong>Enhanced NLP System Active</strong>
-              <div className="small">
-                Multi-language support (Tagalog/English) • Confidence scoring • Hybrid detection
-                {hybridSystemStatus.enhanced_detection && ' • Enhanced condition mapping'}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       
       <div className="d-flex align-items-center mb-4">
         <ul className="nav nav-pills w-100">
@@ -574,7 +542,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
         <div className="bg-white rounded-4 shadow-sm p-4 mb-4" style={{ minHeight: 500 }}>
           <div className="fw-bold mb-2" style={{ fontSize: 20, color: '#38813A' }}>Physical Health Trends</div>
           <div className="text-muted mb-3" style={{ fontSize: 14 }}>
-          AI-powered analysis of physical health issues over time with enhanced NLP detection
+          Distribution of physical health issues over time
           </div>
           
           {loading ? (
@@ -583,7 +551,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
                 <div className="spinner-border text-success mb-3" role="status">
                   <span className="visually-hidden">Loading...</span>
                 </div>
-                <div className="text-muted">Loading enhanced analytics data...</div>
+                <div className="text-muted">Loading analytics data...</div>
               </div>
             </div>
           ) : error ? (
@@ -595,76 +563,78 @@ export default function AdminPhysicalHealthAnalyticsPage() {
                 </button>
               </div>
             </div>
-          ) : chartData && chartData.datasets && chartData.datasets.length > 0 ? (
+          ) : chartData && chartData.datasets && chartData.datasets.length > 0 && chartData.labels && chartData.labels.length > 0 ? (
             <>
               {/* Dynamic Legend based on actual data - Sorted by total cases (descending) */}
               <div className="d-flex justify-content-center align-items-center gap-4 mb-3 flex-wrap" style={{ fontSize: 14, fontFamily: 'sans-serif' }}>
                 {chartData.datasets.slice(0, 10).sort((a, b) => {
-                  // Sort by total data values in descending order
+                  // Sort by total data values in descending order (highest cases first)
                   const aTotal = a.data.reduce((sum, val) => sum + val, 0);
                   const bTotal = b.data.reduce((sum, val) => sum + val, 0);
-                  return bTotal - aTotal;
+                  return bTotal - aTotal; // Descending order
                 }).map((dataset, index) => {
-                  // Simplify legend labels using helper function
-                  const simplifiedLabel = getUserFriendlyLabel(dataset.label);
+                  // Use user-friendly labels (already provided by backend)
+                  const userFriendlyLabel = getUserFriendlyLabel(dataset.label);
                   const totalCases = dataset.data.reduce((sum, val) => sum + val, 0);
                   
                   return (
-                    <span key={index} className="d-flex align-items-center" style={{ 
-                      padding: '6px 10px', 
-                      borderRadius: 8, 
-                      backgroundColor: 'rgba(255,255,255,0.95)',
-                      border: '2px solid rgba(0,0,0,0.1)',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <span 
-                        style={{ 
-                          width: 14, 
-                          height: 14, 
-                          background: dataset.backgroundColor, 
-                          display: 'inline-block', 
-                          borderRadius: 4, 
-                          marginRight: 8,
-                          border: '1px solid rgba(0,0,0,0.2)'
-                        }}
-                      ></span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>
-                        {simplifiedLabel}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 500, color: '#666', marginLeft: 6 }}>
-                        ({totalCases})
-                      </span>
+                  <span key={index} className="d-flex align-items-center" style={{ 
+                    padding: '6px 10px', 
+                    borderRadius: 8, 
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    border: '2px solid rgba(0,0,0,0.1)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    <span 
+                      style={{ 
+                        width: 14, 
+                        height: 14, 
+                        background: dataset.backgroundColor, 
+                        display: 'inline-block', 
+                        borderRadius: 4, 
+                        marginRight: 8,
+                        border: '1px solid rgba(0,0,0,0.2)'
+                      }}
+                    ></span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>
+                        {userFriendlyLabel}
                     </span>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: '#666', marginLeft: 6 }}>
+                        ({totalCases})
+                    </span>
+                  </span>
                   );
                 })}
               </div>
               
               {/* Chart.js line chart with enhanced animations and stacking */}
           <div className="w-100" style={{ minHeight: 350, overflow: 'hidden' }}>
+            {(() => {
+              return chartData && chartData.datasets && chartData.datasets.length > 0 ? (
             <Line
               data={{
                     labels: chartData.labels || [],
-                    datasets: chartData.datasets || [],
+                        datasets: chartData.datasets || [],
               }}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                   legend: {
-                    display: false, // We use custom legend above
+                        display: false, // We use custom legend above
                   },
                   tooltip: {
                     mode: 'index',
                     intersect: false,
-                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
                     titleColor: '#fff',
                     bodyColor: '#fff',
                     borderColor: '#ddd',
                     borderWidth: 1,
-                    cornerRadius: 10,
+                        cornerRadius: 10,
                     displayColors: true,
-                    padding: 12,
+                        padding: 12,
                     callbacks: {
                       title: function(context) {
                         // Show month with year in tooltip title
@@ -684,14 +654,14 @@ export default function AdminPhysicalHealthAnalyticsPage() {
                         return monthLabel + ' ' + year;
                       },
                       label: function(context) {
-                        // Use user-friendly labels (already provided by backend)
+                            // Use user-friendly labels and sort by value in tooltip
                         const userFriendlyLabel = getUserFriendlyLabel(context.dataset.label);
                         return userFriendlyLabel + ': ' + context.parsed.y + ' cases';
-                      },
-                      afterBody: function(context) {
-                        // Add total cases for the month
-                        const total = context.reduce((sum, item) => sum + item.parsed.y, 0);
-                        return ['', `Total: ${total} cases`];
+                          },
+                          afterBody: function(context) {
+                            // Add total cases for the month
+                            const total = context.reduce((sum, item) => sum + item.parsed.y, 0);
+                            return ['', `Total: ${total} cases`];
                       }
                     }
                   },
@@ -709,7 +679,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
                   point: {
                     radius: 0,  // Invisible by default
                     hoverRadius: 8,  // Larger circle on hover
-                    borderWidth: 2,  // Thicker border
+                        borderWidth: 2,  // Thicker border
                     backgroundColor: function(context) {
                       return context.dataset.pointBackgroundColor || context.dataset.backgroundColor;
                     },
@@ -735,7 +705,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
                       font: { size: 14, weight: 'bold' },
                       color: '#333'
                     },
-                    stacked: true, // Enable stacking for X-axis
+                        stacked: true, // Enable stacking for X-axis
                     grid: {
                       display: false, // Remove grid lines
                       color: 'rgba(0,0,0,0.1)',
@@ -757,7 +727,7 @@ export default function AdminPhysicalHealthAnalyticsPage() {
                     },
                     stacked: true, // Enable stacking for proper area chart
                     min: 0,
-                    max: 100, // Fixed maximum to avoid complex calculations
+                    max: yAxisRange.max, // Use dynamic maximum instead of fixed 100
                     grid: {
                       display: true, // Enable grid lines for better alignment
                       color: 'rgba(0,0,0,0.1)',
@@ -765,25 +735,38 @@ export default function AdminPhysicalHealthAnalyticsPage() {
                       lineWidth: 1
                     },
                     ticks: {
-                      stepSize: 10, // Fixed step size
+                      stepSize: Math.ceil(yAxisRange.max / 10), // Dynamic step size based on range
                       callback: function(value) {
                         return Math.round(value);
                       },
                       font: { size: 12 },
-                      color: '#666'
+                      color: '#666',
+                      maxTicksLimit: 11 // Limit to show reasonable number of ticks
                     }
                   },
                 },
               }}
-              height={220}
+              height={350}
             />
+              ) : (
+                <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 350 }}>
+                  <div className="text-center text-muted">
+                    <div className="mb-2">Chart data not available</div>
+                    <div style={{ fontSize: 14 }}>Please check if data is being loaded properly.</div>
+                    <div style={{ fontSize: 12, marginTop: 8 }}>
+                      Debug: chartData = {JSON.stringify(chartData ? 'exists' : 'null')}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
             </>
-          ) : (
-            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 220 }}>
+                      ) : (
+            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 350 }}>
               <div className="text-center text-muted">
                 <div className="mb-2">No data available</div>
-                <div style={{ fontSize: 14 }}>No completed permit requests found for the selected time period.</div>
+                <div style={{ fontSize: 14 }}>No data available found for the selected time period.</div>
               </div>
             </div>
           )}
@@ -792,27 +775,42 @@ export default function AdminPhysicalHealthAnalyticsPage() {
           <div className="col-12">
             <div className="bg-white rounded-4 shadow-sm p-4" style={{ minHeight: 120 }}>
               <div className="fw-bold mb-2" style={{ fontSize: 18 }}>Key Insights</div>
-              <ul className="mb-0" style={{ fontSize: 15, color: '#444', paddingLeft: 18 }}>
-                {(() => {
-                  const aiInsights = generateInsights();
-                  
-                  // Filter out the header text and get only the actual insights
-                  const cleanInsights = aiInsights.filter(insight => 
-                    !insight.includes('AI-POWERED PREDICTIVE ANALYTICS:') &&
-                    !insight.includes('AI-Powered Predictive Analytics System') &&
-                    !insight.includes('Random Forest') &&
-                    !insight.includes('ARIMA') &&
-                    !insight.includes('Machine Learning') &&
-                    !insight.includes('Predictive modeling') &&
-                    !insight.includes('Risk assessment') &&
-                    !insight.includes('Seasonal pattern')
-                  );
-                  
-                  return cleanInsights.map((insight, index) => (
-                    <li key={index}>{insight}</li>
-                  ));
-                })()}
-              </ul>
+              {loading ? (
+                <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 80 }}>
+                  <div className="text-center">
+                    <div className="spinner-border text-success mb-2" role="status" style={{ width: '1.5rem', height: '1.5rem' }}>
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <div className="text-muted" style={{ fontSize: 14 }}>Loading insights...</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-0">
+                  {(() => {
+                    const aiInsights = generateInsights();
+                    
+                    // Filter out the header text and get only the actual insights
+                    const cleanInsights = aiInsights.filter(insight => 
+                      !insight.includes('AI-POWERED PREDICTIVE ANALYTICS:') &&
+                      !insight.includes('AI-Powered Predictive Analytics System') &&
+                      !insight.includes('Random Forest') &&
+                      !insight.includes('ARIMA') &&
+                      !insight.includes('Machine Learning') &&
+                      !insight.includes('Predictive modeling') &&
+                      !insight.includes('Risk assessment') &&
+                      !insight.includes('Seasonal pattern')
+                    );
+                    
+                    return (
+                      <ul className="mb-0" style={{ fontSize: 13, color: '#555', paddingLeft: 16, marginBottom: 0 }}>
+                        {cleanInsights.map((insight, index) => (
+                          <li key={index} style={{ marginBottom: '4px' }}>{insight}</li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         </div>

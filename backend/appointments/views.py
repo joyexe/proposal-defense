@@ -42,6 +42,138 @@ def format_relative_time(created_at):
     else:
         return "Just now"
 
+def create_appointment_notifications(appointments, user_role, viewed_field):
+    """Helper function to create appointment notifications with reminders"""
+    notifications = []
+    
+    for appointment in appointments:
+        # Create base appointment notification
+        relative_time = format_relative_time(appointment.created_at)
+        notification_text = f"New Appointment Just Scheduled for You"
+        
+        base_notification = {
+            'id': appointment.id,
+            'text': notification_text,
+            'timestamp': relative_time,
+            'type': 'appointment',
+            'isRead': getattr(appointment, viewed_field) is not None,
+            'status': appointment.status,
+            'appointment_data': {
+                'date': appointment.date,
+                'time': appointment.time,
+                'service_type': appointment.get_service_type_display(),
+                'reason': appointment.reason,
+                'status': appointment.status,
+                'provider_name': appointment.provider.full_name,
+                'provider_role': appointment.provider.role,
+                'client_name': appointment.client.full_name,
+                'client_role': appointment.client.role,
+                'created_at': appointment.created_at,
+                'referral': appointment.referral
+            }
+        }
+        notifications.append(base_notification)
+        
+        # Add reminder notification if reminder was sent and appointment is upcoming
+        if (appointment.status == 'upcoming' and 
+            appointment.client_reminder_sent_at and 
+            user_role in ['student', 'faculty']):
+            
+            reminder_relative_time = format_relative_time(appointment.client_reminder_sent_at)
+            reminder_text = f"⏰ Appointment Reminder: Your {appointment.get_service_type_display()} appointment is in 10 minutes"
+            
+            reminder_notification = {
+                'id': f"{appointment.id}_reminder",
+                'text': reminder_text,
+                'timestamp': reminder_relative_time,
+                'type': 'appointment_reminder',
+                'isRead': getattr(appointment, viewed_field) is not None,
+                'status': appointment.status,
+                'appointment_data': {
+                    'date': appointment.date,
+                    'time': appointment.time,
+                    'service_type': appointment.get_service_type_display(),
+                    'reason': appointment.reason,
+                    'status': appointment.status,
+                    'provider_name': appointment.provider.full_name,
+                    'provider_role': appointment.provider.role,
+                    'client_name': appointment.client.full_name,
+                    'client_role': appointment.client.role,
+                    'created_at': appointment.created_at,
+                    'referral': appointment.referral,
+                    'reminder_sent_at': appointment.client_reminder_sent_at
+                }
+            }
+            notifications.append(reminder_notification)
+    
+    return notifications
+
+def create_provider_appointment_notifications(appointments, user_role, viewed_field):
+    """Helper function to create provider appointment notifications with reminders"""
+    notifications = []
+    
+    for appointment in appointments:
+        # Create base appointment notification
+        relative_time = format_relative_time(appointment.created_at)
+        notification_text = f"New Appointment Just Scheduled for You"
+        
+        base_notification = {
+            'id': appointment.id,
+            'text': notification_text,
+            'timestamp': relative_time,
+            'type': 'appointment',
+            'isRead': getattr(appointment, viewed_field) is not None,
+            'status': appointment.status,
+            'appointment_data': {
+                'date': appointment.date,
+                'time': appointment.time,
+                'service_type': appointment.get_service_type_display(),
+                'reason': appointment.reason,
+                'status': appointment.status,
+                'provider_name': appointment.provider.full_name,
+                'provider_role': appointment.provider.role,
+                'client_name': appointment.client.full_name,
+                'client_role': appointment.client.role,
+                'created_at': appointment.created_at,
+                'referral': appointment.referral
+            }
+        }
+        notifications.append(base_notification)
+        
+        # Add reminder notification if reminder was sent and appointment is upcoming
+        if (appointment.status == 'upcoming' and 
+            appointment.provider_reminder_sent_at and 
+            user_role in ['clinic', 'counselor']):
+            
+            reminder_relative_time = format_relative_time(appointment.provider_reminder_sent_at)
+            reminder_text = f"⏰ Appointment Reminder: You have a {appointment.get_service_type_display()} appointment in 10 minutes"
+            
+            reminder_notification = {
+                'id': f"{appointment.id}_reminder",
+                'text': reminder_text,
+                'timestamp': reminder_relative_time,
+                'type': 'appointment_reminder',
+                'isRead': getattr(appointment, viewed_field) is not None,
+                'status': appointment.status,
+                'appointment_data': {
+                    'date': appointment.date,
+                    'time': appointment.time,
+                    'service_type': appointment.get_service_type_display(),
+                    'reason': appointment.reason,
+                    'status': appointment.status,
+                    'provider_name': appointment.provider.full_name,
+                    'provider_role': appointment.provider.role,
+                    'client_name': appointment.client.full_name,
+                    'client_role': appointment.client.role,
+                    'created_at': appointment.created_at,
+                    'referral': appointment.referral,
+                    'reminder_sent_at': appointment.provider_reminder_sent_at
+                }
+            }
+            notifications.append(reminder_notification)
+    
+    return notifications
+
 def create_appointment_activity(user, appointment, action):
     """Helper function to create appointment activity records"""
     try:
@@ -102,35 +234,8 @@ def get_student_appointment_notifications(request):
         client=request.user
     ).order_by('-created_at')
     
-    notifications = []
-    for appointment in appointments:
-        # Calculate relative time
-        relative_time = format_relative_time(appointment.created_at)
-        
-        # Create notification text
-        notification_text = f"New Appointment Just Scheduled for You"
-        
-        notifications.append({
-            'id': appointment.id,
-            'text': notification_text,
-            'timestamp': relative_time,
-            'type': 'appointment',
-            'isRead': appointment.student_viewed_at is not None,
-            'status': appointment.status,
-            'appointment_data': {
-                'date': appointment.date,
-                'time': appointment.time,
-                'service_type': appointment.get_service_type_display(),
-                'reason': appointment.reason,
-                'status': appointment.status,
-                'provider_name': appointment.provider.full_name,
-                'provider_role': appointment.provider.role,
-                'client_name': appointment.client.full_name,
-                'client_role': appointment.client.role,
-                'created_at': appointment.created_at,
-                'referral': appointment.referral
-            }
-        })
+    # Use helper function to create notifications with reminders
+    notifications = create_appointment_notifications(appointments, 'student', 'student_viewed_at')
     
     return Response(notifications)
 
@@ -146,35 +251,8 @@ def get_faculty_appointment_notifications(request):
         client=request.user
     ).order_by('-created_at')
     
-    notifications = []
-    for appointment in appointments:
-        # Calculate relative time
-        relative_time = format_relative_time(appointment.created_at)
-        
-        # Create notification text
-        notification_text = f"New Appointment Just Scheduled for You"
-        
-        notifications.append({
-            'id': appointment.id,
-            'text': notification_text,
-            'timestamp': relative_time,
-            'type': 'appointment',
-            'isRead': appointment.faculty_viewed_at is not None,
-            'status': appointment.status,
-            'appointment_data': {
-                'date': appointment.date,
-                'time': appointment.time,
-                'service_type': appointment.get_service_type_display(),
-                'reason': appointment.reason,
-                'status': appointment.status,
-                'provider_name': appointment.provider.full_name,
-                'provider_role': appointment.provider.role,
-                'client_name': appointment.client.full_name,
-                'client_role': appointment.client.role,
-                'created_at': appointment.created_at,
-                'referral': appointment.referral
-            }
-        })
+    # Use helper function to create notifications with reminders
+    notifications = create_appointment_notifications(appointments, 'faculty', 'faculty_viewed_at')
     
     return Response(notifications)
 
@@ -191,35 +269,8 @@ def get_clinic_appointment_notifications(request):
         service_type='physical'
     ).order_by('-created_at')
     
-    notifications = []
-    for appointment in appointments:
-        # Calculate relative time
-        relative_time = format_relative_time(appointment.created_at)
-        
-        # Create notification text
-        notification_text = f"New Appointment Just Scheduled for You"
-        
-        notifications.append({
-            'id': appointment.id,
-            'text': notification_text,
-            'timestamp': relative_time,
-            'type': 'appointment',
-            'isRead': appointment.clinic_viewed_at is not None,
-            'status': appointment.status,
-            'appointment_data': {
-                'date': appointment.date,
-                'time': appointment.time,
-                'service_type': appointment.get_service_type_display(),
-                'reason': appointment.reason,
-                'status': appointment.status,
-                'provider_name': appointment.provider.full_name,
-                'provider_role': appointment.provider.role,
-                'client_name': appointment.client.full_name,
-                'client_role': appointment.client.role,
-                'created_at': appointment.created_at,
-                'referral': appointment.referral
-            }
-        })
+    # Use helper function to create notifications with reminders
+    notifications = create_provider_appointment_notifications(appointments, 'clinic', 'clinic_viewed_at')
     
     return Response(notifications)
 
@@ -236,35 +287,8 @@ def get_counselor_appointment_notifications(request):
         service_type='mental'
     ).order_by('-created_at')
     
-    notifications = []
-    for appointment in appointments:
-        # Calculate relative time
-        relative_time = format_relative_time(appointment.created_at)
-        
-        # Create notification text
-        notification_text = f"New Appointment Just Scheduled for You"
-        
-        notifications.append({
-            'id': appointment.id,
-            'text': notification_text,
-            'timestamp': relative_time,
-            'type': 'appointment',
-            'isRead': appointment.counselor_viewed_at is not None,
-            'status': appointment.status,
-            'appointment_data': {
-                'date': appointment.date,
-                'time': appointment.time,
-                'service_type': appointment.get_service_type_display(),
-                'reason': appointment.reason,
-                'status': appointment.status,
-                'provider_name': appointment.provider.full_name,
-                'provider_role': appointment.provider.role,
-                'client_name': appointment.client.full_name,
-                'client_role': appointment.client.role,
-                'created_at': appointment.created_at,
-                'referral': appointment.referral
-            }
-        })
+    # Use helper function to create notifications with reminders
+    notifications = create_provider_appointment_notifications(appointments, 'counselor', 'counselor_viewed_at')
     
     return Response(notifications)
 

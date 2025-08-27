@@ -465,7 +465,10 @@ export default function ClinicAnalyticsPage() {
     }
     
     // Set Y-axis to accommodate the maximum total value with some padding
-    let adjustedMax = Math.max(maxTotalValue + 2, 5);
+    let adjustedMax = Math.max(maxTotalValue + 2, 20);
+    
+    // Round up to nearest 10 for cleaner tick marks
+    adjustedMax = Math.ceil(adjustedMax / 10) * 10;
     
     return {
       min: 0, // Always start from 0
@@ -748,7 +751,8 @@ export default function ClinicAnalyticsPage() {
                         return Math.round(value);
                       },
                       font: { size: 12 },
-                      color: '#666'
+                      color: '#666',
+                      maxTicksLimit: 11 // Limit to show reasonable number of ticks
                     }
                   },
                 },

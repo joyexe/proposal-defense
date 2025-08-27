@@ -201,9 +201,9 @@ class DOHCompliantReportGenerator:
         story.append(Spacer(1, 30))
         
         # Prepared by - use current user if available
-        prepared_by_text = '<b>Prepared by:</b><br/>School Health Analytics System<br/>AI-Powered Predictive Analytics'
+        prepared_by_text = '<b>Prepared by:</b><br/>School Health Analytics System'
         if hasattr(data, 'get') and data.get('prepared_by'):
-            prepared_by_text = f'<b>Prepared by:</b><br/>{data.get("prepared_by")}<br/>School Health Analytics System'
+            prepared_by_text = f'<b>Prepared by:</b><br/>{data.get("prepared_by")}'
         
         story.append(Paragraph(prepared_by_text, self.styles['DOHNormal']))
         story.append(Spacer(1, 20))
@@ -1019,9 +1019,9 @@ class DOHCompliantReportGenerator:
         # Prepared by
         print(f"Debug PDF - Prepared by: {prepared_by}")
         if prepared_by and prepared_by.strip():
-            story.append(Paragraph(f'<b>Prepared by:</b><br/>{prepared_by}<br/>School Mental Health Analytics System<br/>AI-Powered Predictive Analytics', self.styles['DOHNormal']))
+            story.append(Paragraph(f'<b>Prepared by:</b><br/>{prepared_by}', self.styles['DOHNormal']))
         else:
-            story.append(Paragraph('<b>Prepared by:</b><br/>School Mental Health Analytics System<br/>AI-Powered Predictive Analytics', self.styles['DOHNormal']))
+            story.append(Paragraph('<b>Prepared by:</b><br/>School Mental Health Analytics System', self.styles['DOHNormal']))
         story.append(Spacer(1, 20))
         
         # Confidentiality notice
@@ -1126,13 +1126,13 @@ class DOHCompliantReportGenerator:
         
         # Create risk distribution table
         risk_data = [
-            ['Risk Level', 'Count', 'Percentage', 'Status'],
-            ['High Risk', str(analytics_data.get('high_risk_cases', 0)), 'Critical', 'Immediate Action'],
-            ['Moderate Risk', str(analytics_data.get('moderate_risk_cases', 0)), 'Monitor', 'Regular Follow-up'],
-            ['Low Risk', str(analytics_data.get('low_risk_cases', 0)), 'Stable', 'Routine Care']
+            ['Risk Level', 'Count', 'Status'],
+            ['High Risk', str(analytics_data.get('high_risk_cases', 0)), 'Immediate Action'],
+            ['Moderate Risk', str(analytics_data.get('moderate_risk_cases', 0)), 'Monitor'],
+            ['Low Risk', str(analytics_data.get('low_risk_cases', 0)), 'Stable']
         ]
         
-        risk_table = Table(risk_data, colWidths=[1.5*inch, 1*inch, 1*inch, 1.5*inch])
+        risk_table = Table(risk_data, colWidths=[1.5*inch, 1*inch, 1.5*inch])
         risk_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -1528,5 +1528,586 @@ class DOHCompliantReportGenerator:
         story.append(Paragraph('• Natural language processing for chatbot interactions', self.styles['DOHRecommendation']))
         story.append(Paragraph('• Statistical analysis for risk assessment', self.styles['DOHRecommendation']))
         story.append(Paragraph('• Multi-language support (Tagalog/English)', self.styles['DOHRecommendation']))
+        
+        return story
+
+    def generate_unified_admin_report(self, mental_health_data: Dict[str, Any], physical_health_data: Dict[str, Any], engagement_data: Dict[str, Any], output_path: str, prepared_by: str = None) -> str:
+        """
+        Generate a unified admin PDF report combining all analytics sections
+        
+        Args:
+            mental_health_data: Mental health analytics data
+            physical_health_data: Physical health analytics data
+            engagement_data: AMIETI engagement data
+            output_path: Path to save the PDF file
+            prepared_by: Full name of the user generating the report
+            
+        Returns:
+            Path to generated PDF file
+        """
+        
+        # Create PDF document
+        doc = SimpleDocTemplate(
+            output_path,
+            pagesize=A4,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        # Build story (content)
+        story = []
+        
+        # 1. COVER PAGE
+        story.extend(self._generate_unified_cover_page(mental_health_data, physical_health_data, engagement_data, prepared_by))
+        story.append(PageBreak())
+        
+        # 2. EXECUTIVE SUMMARY
+        story.extend(self._generate_unified_executive_summary(mental_health_data, physical_health_data, engagement_data))
+        story.append(PageBreak())
+        
+        # 3. MENTAL HEALTH ANALYTICS
+        story.extend(self._generate_unified_mental_health_section(mental_health_data))
+        story.append(PageBreak())
+        
+        # 4. PHYSICAL HEALTH ANALYTICS
+        story.extend(self._generate_unified_physical_health_section(physical_health_data))
+        story.append(PageBreak())
+        
+        # 5. AMIETI CHATBOT ENGAGEMENT
+        story.extend(self._generate_unified_amieti_section(engagement_data))
+        story.append(PageBreak())
+        
+        # 6. PREDICTIVE ANALYTICS
+        story.extend(self._generate_unified_predictive_analytics(mental_health_data, physical_health_data, engagement_data))
+        story.append(PageBreak())
+        
+        # 7. RECOMMENDATIONS
+        story.extend(self._generate_unified_recommendations(mental_health_data, physical_health_data, engagement_data))
+        story.append(PageBreak())
+        
+        # 8. APPENDICES
+        story.extend(self._generate_unified_appendices())
+        
+        # Build PDF
+        doc.build(story)
+        
+        return output_path
+
+    def _generate_unified_cover_page(self, mental_health_data: Dict[str, Any], physical_health_data: Dict[str, Any], engagement_data: Dict[str, Any], prepared_by: str = None) -> List:
+        """Generate unified admin report cover page"""
+        story = []
+        
+        # School logo
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'public', 'img', 'ietilogo.png')
+            if os.path.exists(logo_path):
+                story.append(Paragraph(
+                    f'<img src="{logo_path}" width="80" height="80" />',
+                    self.styles['DOHNormal']
+                ))
+                story.append(Spacer(1, 10))
+        except Exception as e:
+            pass
+        
+        # School name
+        story.append(Paragraph(
+            'IETI SCHOOL',
+            ParagraphStyle(
+                'SchoolName',
+                parent=self.styles['DOHTitle'],
+                fontSize=18,
+                textColor=colors.darkblue
+            )
+        ))
+        story.append(Spacer(1, 10))
+        
+        # Report title
+        story.append(Paragraph(
+            'COMPREHENSIVE SCHOOL HEALTH ANALYTICS REPORT',
+            self.styles['DOHTitle']
+        ))
+        story.append(Spacer(1, 20))
+        
+        # Subtitle
+        story.append(Paragraph(
+            'Mental Health, Physical Health & AMIETI Chatbot Analytics',
+            self.styles['DOHSection']
+        ))
+        story.append(Spacer(1, 30))
+        
+        # Report details
+        report_date = datetime.now().strftime('%B %d, %Y')
+        story.append(Paragraph(f'<b>Report Date:</b> {report_date}', self.styles['DOHNormal']))
+        story.append(Paragraph(f'<b>Time Period:</b> {engagement_data.get("summary", {}).get("time_range", "Last 6 months")}', self.styles['DOHNormal']))
+        story.append(Paragraph(f'<b>Total Mental Health Records:</b> {mental_health_data.get("total_diagnoses", 0)}', self.styles['DOHNormal']))
+        story.append(Paragraph(f'<b>Total Physical Health Records:</b> {physical_health_data.get("summary", {}).get("total_requests", 0)}', self.styles['DOHNormal']))
+        story.append(Paragraph(f'<b>Total Chatbot Interactions:</b> {engagement_data.get("summary", {}).get("total_conversations", 0)}', self.styles['DOHNormal']))
+        story.append(Spacer(1, 30))
+        
+        # Prepared by
+        if prepared_by and prepared_by.strip():
+            story.append(Paragraph(f'<b>Prepared by:</b><br/>{prepared_by}', self.styles['DOHNormal']))
+        else:
+            story.append(Paragraph('<b>Prepared by:</b><br/>School Health Analytics System', self.styles['DOHNormal']))
+        story.append(Spacer(1, 20))
+        
+        # DOH compliance notice
+        story.append(Paragraph(
+            '<b>This report follows Department of Health (DOH) standards for school health monitoring and complies with data privacy regulations.</b>',
+            self.styles['DOHAlert']
+        ))
+        
+        return story
+
+    def _generate_unified_executive_summary(self, mental_health_data: Dict[str, Any], physical_health_data: Dict[str, Any], engagement_data: Dict[str, Any]) -> List:
+        """Generate unified executive summary"""
+        story = []
+        
+        story.append(Paragraph('EXECUTIVE SUMMARY', self.styles['DOHTitle']))
+        story.append(Spacer(1, 20))
+        
+        # Key metrics
+        story.append(Paragraph('Comprehensive Health Metrics', self.styles['DOHSection']))
+        
+        metrics_data = [
+            ['Category', 'Metric', 'Value', 'Status'],
+            ['Mental Health', 'Total Diagnoses', str(mental_health_data.get('total_diagnoses', 0)), 'Baseline'],
+            ['Mental Health', 'High Risk Cases', str(mental_health_data.get('high_risk_cases', 0)), 'Critical'],
+            ['Physical Health', 'Total Clinic Visits', str(physical_health_data.get('summary', {}).get('total_requests', 0)), 'Baseline'],
+            ['Physical Health', 'Top Health Concern', physical_health_data.get('summary', {}).get('top_reasons', [{}])[0].get('name', 'N/A'), 'Monitor'],
+            ['AMIETI Chatbot', 'Total Conversations', str(engagement_data.get('summary', {}).get('total_conversations', 0)), 'Engagement'],
+            ['AMIETI Chatbot', 'Total Check-ins', str(engagement_data.get('summary', {}).get('total_checkins', 0)), 'Engagement']
+        ]
+        
+        metrics_table = Table(metrics_data, colWidths=[1.5*inch, 1.5*inch, 1*inch, 1*inch])
+        metrics_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(metrics_table)
+        story.append(Spacer(1, 20))
+        
+        # Critical findings
+        story.append(Paragraph('Critical Findings', self.styles['DOHSection']))
+        
+        # Mental health critical findings
+        high_risk_cases = mental_health_data.get('high_risk_cases', 0)
+        if high_risk_cases > 0:
+            story.append(Paragraph(
+                f'🚨 <b>Mental Health:</b> {high_risk_cases} high-risk mental health cases require immediate attention.',
+                self.styles['DOHAlert']
+            ))
+        else:
+            story.append(Paragraph(
+                '✅ <b>Mental Health:</b> No critical mental health cases detected.',
+                self.styles['DOHNormal']
+            ))
+        
+        # Physical health critical findings
+        physical_health_requests = physical_health_data.get('summary', {}).get('total_requests', 0)
+        if physical_health_requests > 0:
+            story.append(Paragraph(
+                f'📊 <b>Physical Health:</b> {physical_health_requests} clinic visits recorded with comprehensive health monitoring.',
+                self.styles['DOHNormal']
+            ))
+        else:
+            story.append(Paragraph(
+                '📊 <b>Physical Health:</b> Limited physical health data available.',
+                self.styles['DOHNormal']
+            ))
+        
+        # AMIETI engagement findings
+        total_conversations = engagement_data.get('summary', {}).get('total_conversations', 0)
+        total_checkins = engagement_data.get('summary', {}).get('total_checkins', 0)
+        
+        if total_conversations > 0 or total_checkins > 0:
+            story.append(Paragraph(
+                f'🤖 <b>AMIETI Engagement:</b> {total_conversations} conversations and {total_checkins} mood check-ins show active student engagement.',
+                self.styles['DOHNormal']
+            ))
+        else:
+            story.append(Paragraph(
+                '🤖 <b>AMIETI Engagement:</b> Limited chatbot engagement data available.',
+                self.styles['DOHNormal']
+            ))
+        
+        return story
+
+    def _generate_unified_mental_health_section(self, mental_health_data: Dict[str, Any]) -> List:
+        """Generate mental health section for unified report"""
+        story = []
+        
+        story.append(Paragraph('MENTAL HEALTH ANALYTICS', self.styles['DOHTitle']))
+        story.append(Spacer(1, 20))
+        
+        # Risk level distribution
+        story.append(Paragraph('Mental Health Risk Assessment', self.styles['DOHSection']))
+        
+        risk_data = [
+            ['Risk Level', 'Count', 'Status'],
+            ['High Risk', str(mental_health_data.get('high_risk_cases', 0)), 'Immediate Action'],
+            ['Moderate Risk', str(mental_health_data.get('moderate_risk_cases', 0)), 'Monitor'],
+            ['Low Risk', str(mental_health_data.get('low_risk_cases', 0)), 'Stable']
+        ]
+        
+        risk_table = Table(risk_data, colWidths=[1.5*inch, 1*inch, 1.5*inch])
+        risk_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(risk_table)
+        story.append(Spacer(1, 20))
+        
+        # Top mental health diagnoses
+        story.append(Paragraph('Mental Health Diagnoses Summary', self.styles['DOHSection']))
+        story.append(Paragraph(
+            f'<b>Most Common Diagnosis:</b> {mental_health_data.get("top_concern", "No data available")}',
+            self.styles['DOHNormal']
+        ))
+        story.append(Paragraph(
+            f'<b>Total Diagnoses:</b> {mental_health_data.get("total_diagnoses", 0)} completed mental health assessments',
+            self.styles['DOHNormal']
+        ))
+        
+        return story
+
+    def _generate_unified_physical_health_section(self, physical_health_data: Dict[str, Any]) -> List:
+        """Generate physical health section for unified report"""
+        story = []
+        
+        story.append(Paragraph('PHYSICAL HEALTH ANALYTICS', self.styles['DOHTitle']))
+        story.append(Spacer(1, 20))
+        
+        # Top health conditions
+        story.append(Paragraph('Top Physical Health Conditions', self.styles['DOHSection']))
+        
+        top_reasons = physical_health_data.get('summary', {}).get('top_reasons', [])
+        if top_reasons:
+            conditions_data = [['Rank', 'Condition', 'Cases', 'Percentage']]
+            total_cases = sum(reason.get('count', 0) for reason in top_reasons)
+            
+            for i, reason in enumerate(top_reasons[:5], 1):
+                count = reason.get('count', 0)
+                percentage = (count / total_cases * 100) if total_cases > 0 else 0
+                conditions_data.append([
+                    str(i),
+                    reason.get('name', 'Unknown'),
+                    str(count),
+                    f'{percentage:.1f}%'
+                ])
+            
+            conditions_table = Table(conditions_data, colWidths=[0.5*inch, 2*inch, 1*inch, 1*inch])
+            conditions_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            story.append(conditions_table)
+        
+        story.append(Spacer(1, 15))
+        
+        # Demographics
+        story.append(Paragraph('Physical Health Demographics', self.styles['DOHSection']))
+        
+        demographics = physical_health_data.get('summary', {}).get('demographics', {})
+        
+        if demographics.get('level_sections'):
+            story.append(Paragraph('Most Affected Grade Levels:', self.styles['DOHSubsection']))
+            for level in demographics['level_sections'][:3]:
+                story.append(Paragraph(
+                    f'• {level.get("name", "Unknown")}: {level.get("count", 0)} cases',
+                    self.styles['DOHNormal']
+                ))
+        
+        if demographics.get('genders'):
+            story.append(Paragraph('Gender Distribution:', self.styles['DOHSubsection']))
+            for gender in demographics['genders']:
+                story.append(Paragraph(
+                    f'• {gender.get("name", "Unknown")}: {gender.get("count", 0)} cases',
+                    self.styles['DOHNormal']
+                ))
+        
+        return story
+
+    def _generate_unified_amieti_section(self, engagement_data: Dict[str, Any]) -> List:
+        """Generate AMIETI chatbot section for unified report"""
+        story = []
+        
+        story.append(Paragraph('AMIETI CHATBOT ENGAGEMENT', self.styles['DOHTitle']))
+        story.append(Spacer(1, 20))
+        
+        # Engagement summary
+        story.append(Paragraph('Chatbot Engagement Summary', self.styles['DOHSection']))
+        
+        summary = engagement_data.get('summary', {})
+        total_conversations = summary.get('total_conversations', 0)
+        total_checkins = summary.get('total_checkins', 0)
+        
+        engagement_summary_data = [
+            ['Metric', 'Count', 'Description'],
+            ['Total Conversations', str(total_conversations), 'Chatbot interactions'],
+            ['Total Check-ins', str(total_checkins), 'Mood tracking entries'],
+            ['Engagement Rate', f'{(total_conversations + total_checkins) / 100:.1f}%' if (total_conversations + total_checkins) > 0 else '0%', 'Overall engagement']
+        ]
+        
+        engagement_table = Table(engagement_summary_data, colWidths=[1.5*inch, 1*inch, 2*inch])
+        engagement_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(engagement_table)
+        story.append(Spacer(1, 20))
+        
+        # Monthly trends
+        story.append(Paragraph('Monthly Engagement Trends', self.styles['DOHSection']))
+        
+        labels = engagement_data.get('labels', [])
+        datasets = engagement_data.get('datasets', [])
+        
+        if labels and datasets:
+            # Create monthly trends table
+            trends_data = [['Month'] + [dataset.get('label', 'Unknown') for dataset in datasets]]
+            
+            for i, month in enumerate(labels):
+                row = [month]
+                for dataset in datasets:
+                    if i < len(dataset.get('data', [])):
+                        value = dataset['data'][i]
+                        row.append(str(value) if value > 0 else '0')
+                    else:
+                        row.append('0')
+                trends_data.append(row)
+            
+            # Add total row
+            total_row = ['TOTAL']
+            for dataset in datasets:
+                total = sum(dataset.get('data', []))
+                total_row.append(str(total))
+            trends_data.append(total_row)
+            
+            # Create table
+            col_widths = [1*inch] + [1.5*inch] * len(datasets)
+            trends_table = Table(trends_data, colWidths=col_widths)
+            trends_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.lightblue),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ]))
+            
+            story.append(trends_table)
+        else:
+            story.append(Paragraph(
+                'No engagement trend data available for the selected time period.',
+                self.styles['DOHNormal']
+            ))
+        
+        return story
+
+    def _generate_unified_predictive_analytics(self, mental_health_data: Dict[str, Any], physical_health_data: Dict[str, Any], engagement_data: Dict[str, Any]) -> List:
+        """Generate unified predictive analytics section"""
+        story = []
+        
+        story.append(Paragraph('PREDICTIVE ANALYTICS', self.styles['DOHTitle']))
+        story.append(Spacer(1, 20))
+        
+        # Mental health predictions
+        story.append(Paragraph('Mental Health Predictions', self.styles['DOHSection']))
+        
+        high_risk_cases = mental_health_data.get('high_risk_cases', 0)
+        if high_risk_cases > 0:
+            story.append(Paragraph(
+                f'🚨 <b>High Risk Cases:</b> {high_risk_cases} cases require immediate intervention.',
+                self.styles['DOHAlert']
+            ))
+        else:
+            story.append(Paragraph(
+                '✅ <b>Mental Health Risk:</b> No critical cases detected in current period.',
+                self.styles['DOHNormal']
+            ))
+        
+        story.append(Spacer(1, 15))
+        
+        # Physical health predictions
+        story.append(Paragraph('Physical Health Predictions', self.styles['DOHSection']))
+        
+        physical_predictive = physical_health_data.get('predictive_analytics', {})
+        if physical_predictive:
+            resource_data = physical_predictive.get('resource_predictions', {})
+            if resource_data and resource_data.get('predicted_monthly_visits'):
+                story.append(Paragraph(
+                    f'📊 <b>Predicted Monthly Visits:</b> {resource_data.get("predicted_monthly_visits", 0)}',
+                    self.styles['DOHNormal']
+                ))
+            else:
+                story.append(Paragraph(
+                    '📊 <b>Physical Health Trends:</b> Maintain current clinic capacity.',
+                    self.styles['DOHNormal']
+                ))
+        else:
+            story.append(Paragraph(
+                '📊 <b>Physical Health Trends:</b> Continue monitoring health patterns.',
+                self.styles['DOHNormal']
+            ))
+        
+        story.append(Spacer(1, 15))
+        
+        # AMIETI engagement predictions
+        story.append(Paragraph('AMIETI Engagement Predictions', self.styles['DOHSection']))
+        
+        engagement_predictive = engagement_data.get('summary', {}).get('predictive_insights', {})
+        if engagement_predictive:
+            # Check-ins predictions
+            checkin_predictions = engagement_predictive.get('checkins', {})
+            if checkin_predictions:
+                trend = checkin_predictions.get('trend', 'stable')
+                confidence = checkin_predictions.get('confidence', 0)
+                story.append(Paragraph(
+                    f'📊 <b>Check-ins Trend:</b> {trend.title()} with {confidence:.1f}% confidence',
+                    self.styles['DOHNormal']
+                ))
+            
+            # Conversations predictions
+            conversation_predictions = engagement_predictive.get('conversations', {})
+            if conversation_predictions:
+                trend = conversation_predictions.get('trend', 'stable')
+                confidence = conversation_predictions.get('confidence', 0)
+                story.append(Paragraph(
+                    f'💬 <b>Conversations Trend:</b> {trend.title()} with {confidence:.1f}% confidence',
+                    self.styles['DOHNormal']
+                ))
+        else:
+            story.append(Paragraph(
+                '🤖 <b>Engagement Analysis:</b> Continue monitoring chatbot usage patterns.',
+                self.styles['DOHNormal']
+            ))
+        
+        return story
+
+    def _generate_unified_recommendations(self, mental_health_data: Dict[str, Any], physical_health_data: Dict[str, Any], engagement_data: Dict[str, Any]) -> List:
+        """Generate unified recommendations"""
+        story = []
+        
+        story.append(Paragraph('RECOMMENDATIONS', self.styles['DOHTitle']))
+        story.append(Spacer(1, 20))
+        
+        # Immediate actions
+        story.append(Paragraph('Immediate Actions Required', self.styles['DOHSection']))
+        
+        # Mental health immediate actions
+        high_risk_cases = mental_health_data.get('high_risk_cases', 0)
+        if high_risk_cases > 0:
+            story.append(Paragraph(
+                f'🚨 <b>Mental Health:</b> Address {high_risk_cases} high-risk cases immediately',
+                self.styles['DOHAlert']
+            ))
+            story.append(Paragraph(
+                '• Schedule immediate counseling sessions',
+                self.styles['DOHRecommendation']
+            ))
+            story.append(Paragraph(
+                '• Coordinate with parents/guardians',
+                self.styles['DOHRecommendation']
+            ))
+            story.append(Paragraph(
+                '• Consider external mental health referrals',
+                self.styles['DOHRecommendation']
+            ))
+        
+        story.append(Spacer(1, 15))
+        
+        # Medium-term recommendations
+        story.append(Paragraph('Medium-term Recommendations', self.styles['DOHSection']))
+        
+        # Mental health programs
+        story.append(Paragraph('🛡️ <b>Mental Health Programs:</b>', self.styles['DOHNormal']))
+        story.append(Paragraph('• Develop stress management workshops', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Create peer support programs', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Establish crisis intervention protocols', self.styles['DOHRecommendation']))
+        
+        # Physical health programs
+        story.append(Paragraph('🏥 <b>Physical Health Programs:</b>', self.styles['DOHNormal']))
+        story.append(Paragraph('• Continue regular health screenings', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Maintain clinic capacity and resources', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Promote healthy lifestyle habits', self.styles['DOHRecommendation']))
+        
+        # AMIETI engagement
+        story.append(Paragraph('🤖 <b>AMIETI Engagement:</b>', self.styles['DOHNormal']))
+        story.append(Paragraph('• Promote AMIETI chatbot usage among students', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Encourage regular mood check-ins', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Develop targeted mental health campaigns', self.styles['DOHRecommendation']))
+        
+        return story
+
+    def _generate_unified_appendices(self) -> List:
+        """Generate unified appendices"""
+        story = []
+        
+        story.append(Paragraph('APPENDICES', self.styles['DOHTitle']))
+        story.append(Spacer(1, 20))
+        
+        # Appendix A: Data Sources
+        story.append(Paragraph('Appendix A: Data Sources and Methodology', self.styles['DOHSection']))
+        story.append(Paragraph(
+            'This comprehensive report is generated using the following data sources:',
+            self.styles['DOHNormal']
+        ))
+        story.append(Paragraph('• Mental health appointment records and assessments', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Physical health clinic visits and permit requests', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• AMIETI chatbot conversation logs and mood tracking', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Vital signs and nursing intervention records', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• ICD-11 condition coding via AI detection', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Predictive analytics models for trend forecasting', self.styles['DOHRecommendation']))
+        
+        story.append(Spacer(1, 15))
+        
+        # Appendix B: Technical Details
+        story.append(Paragraph('Appendix B: Technical Implementation', self.styles['DOHSection']))
+        story.append(Paragraph(
+            'The comprehensive health analytics system uses the following technologies:',
+            self.styles['DOHNormal']
+        ))
+        story.append(Paragraph('• AI-powered mental health assessment and risk detection', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Physical health trend analysis and outbreak detection', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Natural language processing for chatbot interactions', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Predictive analytics for resource planning', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• Multi-language support (Tagalog/English)', self.styles['DOHRecommendation']))
+        story.append(Paragraph('• DOH-compliant reporting standards', self.styles['DOHRecommendation']))
         
         return story

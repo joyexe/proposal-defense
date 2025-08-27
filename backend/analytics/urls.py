@@ -41,4 +41,7 @@ urlpatterns = [
     
     # Counselor Appointment Documentation
     path('counselor/appointments/<int:appointment_id>/documentation/', counselor_views.update_counselor_appointment_documentation, name='update_counselor_appointment_documentation'),
+    
+    # Admin Unified PDF Report
+    path('admin/generate-unified-pdf-report/', views.generate_unified_admin_pdf_report, name='generate_unified_admin_pdf_report'),
 ]

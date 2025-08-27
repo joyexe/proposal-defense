@@ -27,6 +27,10 @@ export default function UserPage() {
   const userModalRef = useRef(null);
   const pageRef = useRef(null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const bulkUploadModalRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadResults, setUploadResults] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (message.text) {
@@ -478,6 +482,80 @@ export default function UserPage() {
     await fetchUsers(currentPage, itemsPerPage);
   };
 
+  const handleBulkUploadClick = () => {
+    setSelectedFile(null);
+    setUploadResults(null);
+    if (bulkUploadModalRef.current) {
+      const modal = new window.bootstrap.Modal(bulkUploadModalRef.current);
+      modal.show();
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === 'text/csv') {
+      setSelectedFile(file);
+    } else {
+      setMessage({ text: 'Please select a valid CSV file', type: 'error' });
+      setSelectedFile(null);
+    }
+  };
+
+  const handleBulkUpload = async () => {
+    if (!selectedFile) {
+      setMessage({ text: 'Please select a CSV file first', type: 'error' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('csv_file', selectedFile);
+
+      // Use fetchWithAuth for proper authentication handling
+      const response = await fetchWithAuth('http://127.0.0.1:8080/api/admin/users/bulk-upload/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        }
+      });
+
+      if (response.error) {
+        setMessage({ 
+          text: `Bulk upload failed: ${response.error}`, 
+          type: 'error' 
+        });
+      } else {
+        setUploadResults(response);
+        setMessage({ 
+          text: `Bulk upload completed! ${response.success_count} users created successfully.`, 
+          type: 'success' 
+        });
+        await fetchUsers(currentPage, itemsPerPage);
+      }
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      setMessage({ 
+        text: 'Failed to upload file. Please try again.', 
+        type: 'error' 
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const closeBulkUploadModal = () => {
+    if (bulkUploadModalRef.current) {
+      const modal = window.bootstrap.Modal.getInstance(bulkUploadModalRef.current);
+      if (modal) {
+        modal.hide();
+      }
+    }
+    setSelectedFile(null);
+    setUploadResults(null);
+  };
+
 
 
   const handleDropdownClick = (userId) => {
@@ -579,8 +657,38 @@ export default function UserPage() {
               </span>
             </div>
             {/* Add User Button */}
-            <button type="button" className="btn btn-success ms-auto mb-2 mb-md-0" onClick={handleAddUserClick}>
+            <button 
+              type="button" 
+              className="btn btn-success ms-auto mb-2 mb-md-0 me-2" 
+              onClick={handleAddUserClick}
+              style={{ 
+                borderRadius: 8, 
+                fontWeight: 500,
+                padding: '8px 16px',
+                fontSize: '14px',
+                transition: 'all 0.2s ease-in-out',
+                border: 'none',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
               <i className="bi bi-plus-lg me-2"></i>Add User
+            </button>
+            {/* Bulk Upload Button */}
+            <button 
+              type="button" 
+              className="btn btn-success mb-2 mb-md-0" 
+              onClick={handleBulkUploadClick}
+              style={{ 
+                borderRadius: 8, 
+                fontWeight: 500,
+                padding: '8px 16px',
+                fontSize: '14px',
+                transition: 'all 0.2s ease-in-out',
+                border: 'none',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
+              <i className="bi bi-upload me-2"></i>Bulk Upload
             </button>
           </div>
 
@@ -761,11 +869,18 @@ export default function UserPage() {
           {/* User Modal */}
           <div className="modal fade" id="userModal" tabIndex="-1" aria-labelledby="userModalLabel" aria-hidden="true" ref={userModalRef} data-bs-backdrop="static" data-bs-keyboard="false">
             <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content modal-light-green-background">
-                <div className="modal-header" style={{ borderBottom: 'none' }}>
-                  <h5 className="modal-title" id="userModalLabel">{isEditing ? 'Edit User' : 'Add User'}</h5>
+              <div className="modal-content" style={{ 
+                borderRadius: 16, 
+                boxShadow: "0 4px 32px rgba(0,0,0,0.15)", 
+                background: "#fff",
+                border: "none"
+              }}>
+                <div className="modal-header border-0 pb-0" style={{ padding: "24px 24px 0 24px" }}>
+                  <h5 className="modal-title fw-bold" style={{ fontSize: "20px", color: "#222" }} id="userModalLabel">
+                    {isEditing ? 'Edit User' : 'Add User'}
+                  </h5>
                 </div>
-                <div className="modal-body">
+                <div className="modal-body" style={{ padding: "20px 24px 24px 24px" }}>
                   <form>
                     <div className="mb-3">
                       <label htmlFor="fullName" className="form-label">Name</label>
@@ -1005,19 +1120,302 @@ export default function UserPage() {
                     )}
                   </form>
                 </div>
-                <div className="modal-footer" style={{ borderTop: 'none' }}>
-                  <button type="button" className="btn btn-cancel-light-green" data-bs-dismiss="modal" onClick={handleCloseUserModal}>Cancel</button>
+                <div className="modal-footer border-0" style={{ padding: "0 24px 24px 24px" }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    data-bs-dismiss="modal" 
+                    onClick={handleCloseUserModal}
+                    style={{
+                      borderRadius: 8,
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      border: '1px solid #6c757d',
+                      background: '#6c757d',
+                      color: '#fff',
+                      transition: 'all 0.2s ease-in-out'
+                    }}
+                  >
+                    Cancel
+                  </button>
                   <button 
                     type="button" 
                     className="btn btn-success" 
                     onClick={isEditing ? handleUpdateUser : handleCreateUser} 
                     disabled={loading}
+                    style={{
+                      borderRadius: 8,
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      border: 'none',
+                      background: '#28a745',
+                      color: '#fff',
+                      transition: 'all 0.2s ease-in-out',
+                      marginLeft: '12px'
+                    }}
                   >
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                     ) : null}
                     Save changes
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bulk Upload Modal */}
+          <div className="modal fade" id="bulkUploadModal" tabIndex="-1" aria-labelledby="bulkUploadModalLabel" aria-hidden="true" ref={bulkUploadModalRef} data-bs-backdrop="static" data-bs-keyboard="false">
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content" style={{ 
+                borderRadius: 16, 
+                boxShadow: "0 4px 32px rgba(0,0,0,0.15)", 
+                background: "#fff",
+                border: "none"
+              }}>
+                <div className="modal-header border-0 pb-0" style={{ padding: "24px 24px 0 24px" }}>
+                  <h5 className="modal-title fw-bold" style={{ fontSize: "20px", color: "#222" }} id="bulkUploadModalLabel">
+                    Bulk Upload Users
+                  </h5>
+                </div>
+                <div className="modal-body" style={{ padding: "20px 24px 24px 24px" }}>
+                  {!uploadResults ? (
+                    <div>
+                      <div className="alert alert-info" style={{ 
+                        borderRadius: 12, 
+                        border: 'none', 
+                        background: '#e3f2fd', 
+                        color: '#1565c0',
+                        padding: '16px 20px'
+                      }}>
+                        <h6 className="fw-bold mb-3" style={{ fontSize: '16px', color: '#1565c0' }}>
+                          <i className="bi bi-info-circle me-2"></i>Instructions
+                        </h6>
+                        <p className="mb-3" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+                          Upload a CSV file with the following columns:
+                        </p>
+                        <ul className="mb-3" style={{ fontSize: '14px', lineHeight: '1.6', paddingLeft: '20px' }}>
+                          <li><strong>Name</strong> - Full name of the user</li>
+                          <li><strong>Email</strong> - Official email address</li>
+                          <li><strong>Role</strong> - student, faculty, counselor, clinic, or admin</li>
+                          <li><strong>Grade</strong> - Grade level (for students)</li>
+                          <li><strong>Section</strong> - Section (for students)</li>
+                          <li><strong>Date of Birth</strong> - Date of birth (YYYY-MM-DD format)</li>
+                        </ul>
+                        <p className="mb-0" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+                          <strong>Note:</strong> Login credentials will be automatically generated and sent via email.
+                        </p>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label htmlFor="csvFile" className="form-label fw-semibold" style={{ fontSize: '14px', color: '#333', marginBottom: '8px' }}>
+                          Select CSV File
+                        </label>
+                        <input 
+                          type="file" 
+                          className="form-control" 
+                          id="csvFile" 
+                          accept=".csv"
+                          onChange={handleFileSelect}
+                          style={{ 
+                            borderRadius: 8, 
+                            border: '1px solid #ddd',
+                            padding: '12px 16px',
+                            fontSize: '14px'
+                          }}
+                        />
+                        {selectedFile && (
+                          <div className="mt-2">
+                            <small className="text-success fw-medium" style={{ fontSize: '13px' }}>
+                              <i className="bi bi-check-circle me-1"></i>
+                              Selected: {selectedFile.name}
+                            </small>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="d-flex align-items-center justify-content-between p-3" style={{
+                          background: '#f8f9fa',
+                          borderRadius: 8,
+                          border: '1px solid #e9ecef'
+                        }}>
+                          <div>
+                            <h6 className="mb-1 fw-semibold" style={{ fontSize: '14px', color: '#333' }}>
+                              Need a template?
+                            </h6>
+                            <p className="mb-0" style={{ fontSize: '13px', color: '#666' }}>
+                              Download our sample CSV file to see the correct format
+                            </p>
+                          </div>
+                          <button 
+                            type="button" 
+                            className="btn btn-primary" 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Create sample CSV content
+                              const sampleCSV = `Name,Email,Role,Grade,Section,Date of Birth
+John Doe,john.doe@amieti.com,student,Grade 10,A,2005-03-15
+Jane Smith,jane.smith@amieti.com,faculty,,,1980-07-22
+Mike Johnson,mike.johnson@amieti.com,counselor,,,1975-11-08
+David Brown,david.brown@amieti.com,clinic,,,1985-12-03
+Admin User,admin.user@amieti.com,admin,,,1970-01-01`;
+                              
+                              // Create and download the file
+                              const blob = new Blob([sampleCSV], { type: 'text/csv' });
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = 'sample_users.csv';
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              window.URL.revokeObjectURL(url);
+                            }}
+                            style={{
+                              borderRadius: 8,
+                              padding: '10px 16px',
+                              fontSize: '14px',
+                              fontWeight: 500,
+                              border: 'none',
+                              background: '#007bff',
+                              color: '#fff',
+                              transition: 'all 0.2s ease-in-out',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <i className="bi bi-download me-2"></i>
+                            Download Sample CSV
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className={`alert alert-${uploadResults.error_count > 0 ? 'warning' : 'success'}`} style={{ 
+                        borderRadius: 12, 
+                        border: 'none', 
+                        padding: '16px 20px',
+                        background: uploadResults.error_count > 0 ? '#fff3cd' : '#d1edff',
+                        color: uploadResults.error_count > 0 ? '#856404' : '#0c5460'
+                      }}>
+                        <h6 className="fw-bold mb-3" style={{ fontSize: '16px' }}>
+                          <i className="bi bi-info-circle me-2"></i>Upload Results
+                        </h6>
+                        <p className="mb-3" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+                          {uploadResults.message}
+                        </p>
+                        <ul className="mb-0" style={{ fontSize: '14px', lineHeight: '1.6', paddingLeft: '20px' }}>
+                          <li>Total processed: {uploadResults.total_processed}</li>
+                          <li>Successfully created: {uploadResults.success_count}</li>
+                          <li>Errors: {uploadResults.error_count}</li>
+                        </ul>
+                      </div>
+
+                      {uploadResults.success.length > 0 && (
+                        <div className="mb-4">
+                          <h6 className="fw-semibold mb-3" style={{ fontSize: '16px', color: '#333' }}>
+                            Successfully Created Users:
+                          </h6>
+                          <div className="table-responsive" style={{ maxHeight: '200px', overflowY: 'auto', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+                            <table className="table table-sm mb-0" style={{ fontSize: '13px' }}>
+                              <thead style={{ background: '#f8f9fa' }}>
+                                <tr>
+                                  <th style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>Name</th>
+                                  <th style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>Email</th>
+                                  <th style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>Role</th>
+                                  <th style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>ID</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {uploadResults.success.map((item, index) => (
+                                  <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                    <td style={{ padding: '12px 16px' }}>{item.user.full_name}</td>
+                                    <td style={{ padding: '12px 16px' }}>{item.user.email}</td>
+                                    <td style={{ padding: '12px 16px' }}>{item.user.role}</td>
+                                    <td style={{ padding: '12px 16px' }}>{item.user.student_id || item.user.faculty_id}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {uploadResults.errors.length > 0 && (
+                        <div className="mb-4">
+                          <h6 className="fw-semibold mb-3" style={{ fontSize: '16px', color: '#333' }}>
+                            Errors:
+                          </h6>
+                          <div className="table-responsive" style={{ maxHeight: '200px', overflowY: 'auto', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+                            <table className="table table-sm mb-0" style={{ fontSize: '13px' }}>
+                              <thead style={{ background: '#f8f9fa' }}>
+                                <tr>
+                                  <th style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>Row</th>
+                                  <th style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>Error</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {uploadResults.errors.map((error, index) => (
+                                  <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                    <td style={{ padding: '12px 16px' }}>{error.row}</td>
+                                    <td style={{ padding: '12px 16px', color: '#dc3545' }}>{error.error}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer border-0" style={{ padding: "0 24px 24px 24px" }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={closeBulkUploadModal}
+                    style={{
+                      borderRadius: 8,
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      border: '1px solid #6c757d',
+                      background: '#6c757d',
+                      color: '#fff',
+                      transition: 'all 0.2s ease-in-out'
+                    }}
+                  >
+                    {uploadResults ? 'Close' : 'Cancel'}
+                  </button>
+                  {!uploadResults && (
+                    <button 
+                      type="button" 
+                      className="btn btn-success" 
+                      onClick={handleBulkUpload}
+                      disabled={!selectedFile || uploading}
+                      style={{
+                        borderRadius: 8,
+                        padding: '10px 20px',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        border: 'none',
+                        background: '#28a745',
+                        color: '#fff',
+                        transition: 'all 0.2s ease-in-out',
+                        marginLeft: '12px'
+                      }}
+                    >
+                      {uploading ? (
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      ) : null}
+                      Upload Users
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

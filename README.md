@@ -76,7 +76,7 @@ Before you begin, ensure you have the following installed:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/joyexe/proposal-defense.git
+git clone https://github.com/joyexe/capstone-project.git
 cd amieti
 ```
 

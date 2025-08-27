@@ -209,8 +209,8 @@ def save_mental_health_diagnosis(request):
 @permission_classes([IsAuthenticated])
 def mental_health_trends(request):
     """Get mental health trends based on completed appointments using stored diagnosis codes"""
-    if request.user.role != 'counselor':
-        return Response({'error': 'Only counselors can access this endpoint'}, status=status.HTTP_403_FORBIDDEN)
+    if request.user.role not in ['counselor', 'admin']:
+        return Response({'error': 'Only counselors and administrators can access this endpoint'}, status=status.HTTP_403_FORBIDDEN)
     
     try:
         # Get time range from query parameters (default to last 6 months)
@@ -785,7 +785,7 @@ def extract_key_terms(diagnosis_name):
 @permission_classes([IsAuthenticated])
 def risk_level_distribution(request):
     """Get risk level distribution for counselor analytics"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get date range (default to last 6 months)
@@ -878,7 +878,7 @@ def risk_level_distribution(request):
 @permission_classes([IsAuthenticated])
 def mental_health_alerts(request):
     """Get mental health alerts for counselor analytics"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get date range (default to last 6 months)
@@ -959,7 +959,7 @@ def mental_health_alerts(request):
 @permission_classes([IsAuthenticated])
 def chatbot_mental_health_analytics(request):
     """Get chatbot mental health analytics for counselor dashboard"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get date range (default to last 6 months)
@@ -1041,7 +1041,7 @@ def chatbot_mental_health_analytics(request):
 @permission_classes([IsAuthenticated])
 def mental_health_analytics_summary(request):
     """Get mental health analytics summary for counselor dashboard"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get total mental health diagnoses from appointments

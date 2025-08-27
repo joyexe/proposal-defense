@@ -1,26 +1,29 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Line } from "react-chartjs-2";
+import { Line, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Filler,
   Tooltip,
   Legend as ChartLegend
 } from "chart.js";
 import { useRouter } from "next/navigation";
-import { getChatbotMentalHealthAnalytics } from "../../../utils/api";
+import { getChatbotMentalHealthAnalytics, getMentalHealthAnalyticsSummary, generateUnifiedAdminPDFReport } from "../../../utils/api";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, ChartLegend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Tooltip, ChartLegend);
 
 export default function AdminEngagementsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState(null);
   const [engagementData, setEngagementData] = useState(null);
+  const [predictiveInsights, setPredictiveInsights] = useState(null);
   const [timeRange, setTimeRange] = useState('month'); // Default to show all months
 
   useEffect(() => {
@@ -28,8 +31,14 @@ export default function AdminEngagementsPage() {
       try {
         setLoading(true);
         const apiTimeRange = timeRange === 'month' ? 12 : timeRange; // Use 12 months for "All Months" option
-        const engagement = await getChatbotMentalHealthAnalytics(apiTimeRange);
+        const [summary, engagement] = await Promise.all([
+          getMentalHealthAnalyticsSummary(),
+          getChatbotMentalHealthAnalytics(apiTimeRange)
+        ]);
+        
+        setAnalyticsData(summary);
         setEngagementData(engagement);
+        setPredictiveInsights(engagement?.summary?.predictive_insights || null);
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
@@ -48,44 +57,71 @@ export default function AdminEngagementsPage() {
     }
   };
 
-  // Data for AMIETI Engagement Trends (line chart) - use API data or fallback
-  const engagementLineData = engagementData && engagementData.labels && engagementData.datasets ? {
-    labels: engagementData.labels,
-    datasets: engagementData.datasets.map(dataset => ({
-      ...dataset,
-      fill: false,
-      tension: 0.3,
-      pointRadius: 4,
-      pointBackgroundColor: dataset.backgroundColor,
-      pointBorderColor: dataset.backgroundColor,
-    }))
-  } : {
-    labels: ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"],
-    datasets: [
-      {
-        label: "Check-ins",
-        data: [23, 28, 25, 32, 29, 35, 38, 36, 42, 40, 46, 0],
-        fill: false,
-        borderColor: "#2dd4bf",
-        backgroundColor: "#2dd4bf",
-        tension: 0.3,
-        pointRadius: 4,
-        pointBackgroundColor: "#2dd4bf",
-        pointBorderColor: "#2dd4bf",
-      },
-      {
-        label: "Conversations",
-        data: [45, 52, 48, 61, 58, 67, 73, 69, 82, 78, 89, 0],
-        fill: false,
-        borderColor: "#f472b6",
-        backgroundColor: "#f472b6",
-        tension: 0.3,
-        pointRadius: 4,
-        pointBackgroundColor: "#f472b6",
-        pointBorderColor: "#f472b6",
-      },
-    ],
+  const handleExportPDF = async () => {
+    try {
+      const response = await generateUnifiedAdminPDFReport(timeRange === 'month' ? 12 : timeRange);
+      
+      // Check if response is successful (status 200-299)
+      if (response.status >= 200 && response.status < 300) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mental_physical_health_report_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        console.error('PDF generation failed:', response.status, response.statusText);
+        alert('Failed to generate PDF report. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF report. Please try again.');
+    }
   };
+
+  // Helper function to get Y-axis range for engagement trends
+  const getYAxisRange = () => {
+    if (!engagementData || !engagementData.datasets || engagementData.datasets.length === 0) {
+      return { min: 0, max: 5 };
+    }
+    
+    // Find the minimum and maximum values across all datasets
+    let minValue = Infinity;
+    let maxValue = -Infinity;
+    
+    engagementData.datasets.forEach(dataset => {
+      if (dataset.data && dataset.data.length > 0) {
+        const datasetMin = Math.min(...dataset.data);
+        const datasetMax = Math.max(...dataset.data);
+        
+        if (datasetMin < minValue) minValue = datasetMin;
+        if (datasetMax > maxValue) maxValue = datasetMax;
+      }
+    });
+    
+    // If no valid data found, use defaults
+    if (minValue === Infinity || maxValue === -Infinity) {
+      return { min: 0, max: 5 };
+    }
+    
+    // Set Y-axis to accommodate the maximum value with some padding
+    let adjustedMax = Math.max(maxValue + 2, 20);
+    
+    // Round up to nearest 10 for cleaner tick marks
+    adjustedMax = Math.ceil(adjustedMax / 10) * 10;
+    
+    return {
+      min: 0, // Always start from 0
+      max: adjustedMax
+    };
+  };
+
+  const yAxisRange = getYAxisRange();
+
+  // Chart options for engagement trends
   const engagementLineOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -177,6 +213,8 @@ export default function AdminEngagementsPage() {
           color: '#333'
         },
         stacked: false, // Disable stacking to show individual values
+        min: 0,
+        max: yAxisRange.max,
         grid: {
           display: true, // Show horizontal grid lines
           color: 'rgba(0,0,0,0.1)',
@@ -184,12 +222,13 @@ export default function AdminEngagementsPage() {
           lineWidth: 1
         },
         ticks: {
-          stepSize: 1,
+          stepSize: Math.ceil(yAxisRange.max / 10), // Dynamic step size based on range
           callback: function(value) {
             return Math.round(value);
           },
           font: { size: 12 },
-          color: '#666'
+          color: '#666',
+          maxTicksLimit: 11 // Limit to show reasonable number of ticks
         }
       },
     },
@@ -199,7 +238,7 @@ export default function AdminEngagementsPage() {
     <div className="container-fluid py-4" style={{ background: '#fafbfc', minHeight: '100vh' }}>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <div className="fw-bold fs-5 mb-1">System Overview</div>
+          <div className="fw-bold fs-5 mb-1">Mental Health Metrics</div>
           <div className="text-muted" style={{ fontSize: 15 }}>Key performance indicators and trends</div>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -221,7 +260,11 @@ export default function AdminEngagementsPage() {
               <i className="bi bi-chevron-down"></i>
             </span>
           </div>
-          <button className="btn btn-success px-4 fw-semibold" style={{ borderRadius: 10 }}>
+          <button 
+            className="btn btn-success px-4 fw-semibold" 
+            style={{ borderRadius: 10 }}
+            onClick={handleExportPDF}
+          >
             <span className="me-2" aria-hidden="true">
               <i className="bi bi-download" style={{ fontSize: 18, verticalAlign: 'middle' }}></i>
             </span>
@@ -252,29 +295,37 @@ export default function AdminEngagementsPage() {
       <div className="row g-3 align-items-end mb-3">
         <div className="col-md-3">
           <div className="bg-white rounded-4 shadow-sm p-3 h-100 d-flex flex-column justify-content-center align-items-start" style={{ minHeight: 90 }}>
-            <div className="text-muted mb-1" style={{ fontSize: 15 }}>Total Mental Health Records</div>
-            <div className="fw-bold" style={{ fontSize: 28, color: '#222' }}>357</div>
-            <div className="text-secondary small mt-1">+24 from last quarter</div>
+            <div className="text-muted mb-1" style={{ fontSize: 15 }}>Total Conversations</div>
+            <div className="fw-bold" style={{ fontSize: 28, color: '#222' }}>
+              {engagementData?.summary?.total_conversations || 0}
+            </div>
+            <div className="text-secondary small mt-1">Chatbot conversations</div>
           </div>
         </div>
         <div className="col-md-3">
           <div className="bg-white rounded-4 shadow-sm p-3 h-100 d-flex flex-column justify-content-center align-items-start" style={{ minHeight: 90 }}>
-            <div className="text-muted mb-1" style={{ fontSize: 15 }}>Anxiety Reports</div>
-            <div className="fw-bold" style={{ fontSize: 28, color: '#222' }}>142</div>
-            <div className="text-secondary small mt-1">+15% from last quarter</div>
+            <div className="text-muted mb-1" style={{ fontSize: 15 }}>Total Check-ins</div>
+            <div className="fw-bold" style={{ fontSize: 28, color: '#222' }}>
+              {engagementData?.summary?.total_checkins || 0}
+            </div>
+            <div className="text-secondary small mt-1">Daily mood check-ins</div>
           </div>
         </div>
         <div className="col-md-3">
           <div className="bg-white rounded-4 shadow-sm p-3 h-100 d-flex flex-column justify-content-center align-items-start" style={{ minHeight: 90 }}>
-            <div className="text-muted mb-1" style={{ fontSize: 15 }}>Depression Reports</div>
-            <div className="fw-bold" style={{ fontSize: 28, color: '#222' }}>98</div>
-            <div className="text-secondary small mt-1">+8% from last quarter</div>
+            <div className="text-muted mb-1" style={{ fontSize: 15 }}>Total Messages</div>
+            <div className="fw-bold" style={{ fontSize: 28, color: '#222' }}>
+              {engagementData?.summary?.total_messages || 0}
+            </div>
+            <div className="text-secondary small mt-1">All chatbot interactions</div>
           </div>
         </div>
         <div className="col-md-3">
           <div className="bg-white rounded-4 shadow-sm p-3 h-100 d-flex flex-column justify-content-center align-items-start" style={{ minHeight: 90 }}>
-            <div className="text-muted mb-1" style={{ fontSize: 15 }}>High Alert Flags</div>
-            <div className="fw-bold" style={{ fontSize: 28, color: '#e53935' }}>14</div>
+            <div className="text-muted mb-1" style={{ fontSize: 15 }}>Active Alerts</div>
+            <div className="fw-bold" style={{ fontSize: 28, color: '#e53935' }}>
+              {analyticsData?.high_alerts || 0}
+            </div>
             <div className="text-danger small mt-1">Require immediate attention</div>
           </div>
         </div>
@@ -291,112 +342,56 @@ export default function AdminEngagementsPage() {
               <div style={{ fontSize: 14 }}>Please wait while we load the data.</div>
             </div>
           </div>
-        ) : (
+        ) : engagementData && engagementData.datasets && engagementData.datasets.length > 0 && engagementData.labels && engagementData.labels.length > 0 ? (
           <>
-            {/* Custom Legend */}
+            {/* Dynamic Legend - Only show Check-ins and Conversations */}
             <div className="d-flex justify-content-center align-items-center gap-4 mb-3 flex-wrap" style={{ fontSize: 14, fontFamily: 'sans-serif' }}>
-              {engagementLineData.datasets.map((dataset, index) => (
-                <span key={index} className="d-flex align-items-center" style={{ 
-                  padding: '4px 8px', 
-                  borderRadius: 6, 
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  border: '1px solid rgba(0,0,0,0.1)'
-                }}>
-                  <span 
-                    style={{ 
-                      width: 12, 
-                      height: 12, 
-                      background: dataset.backgroundColor, 
-                      display: 'inline-block', 
-                      borderRadius: 3, 
-                      marginRight: 6 
-                    }}
-                  ></span>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: '#333' }}>
-                    {dataset.label}
+              {engagementData.datasets
+                .filter(dataset => dataset.label === 'Check-ins' || dataset.label === 'Conversations')
+                .map((dataset, index) => (
+                  <span key={index} className="d-flex align-items-center" style={{ 
+                    padding: '4px 8px', 
+                    borderRadius: 6, 
+                    backgroundColor: 'rgba(255,255,255,0.8)',
+                    border: '1px solid rgba(0,0,0,0.1)'
+                  }}>
+                    <span 
+                      style={{ 
+                        width: 12, 
+                        height: 12, 
+                        background: dataset.backgroundColor, 
+                        display: 'inline-block', 
+                        borderRadius: 3, 
+                        marginRight: 6 
+                      }}
+                    ></span>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: '#333' }}>
+                      {dataset.label}
+                    </span>
                   </span>
-                </span>
-              ))}
+                ))}
             </div>
             
-            {/* Chart */}
-        <div className="w-100" style={{ minHeight: 220, overflow: 'hidden' }}>
-          <Line data={engagementLineData} options={engagementLineOptions} height={220} />
-        </div>
+            {/* Chart.js line chart */}
+            <div className="w-100" style={{ minHeight: 220, overflow: 'hidden' }}>
+              <Line
+                data={{
+                  labels: engagementData.labels || [],
+                  datasets: engagementData.datasets || [],
+                }}
+                options={engagementLineOptions}
+                height={220}
+              />
+            </div>
           </>
-        )}
-      </div>
-      {/* AI-Powered Predictive Analytics */}
-      <div className="row">
-        <div className="col-lg-12">
-          <div className="bg-white rounded-4 shadow-sm p-4" style={{ minHeight: 120 }}>
-            <div className="fw-bold mb-2" style={{ fontSize: 18 }}>AI-Powered Predictive Analytics</div>
-            {predictiveInsights && predictiveInsights.overall_insights ? (
-              <div>
-                {/* Algorithm Performance */}
-                <div className="mb-3">
-                  <div className="fw-semibold mb-1" style={{ fontSize: 14, color: '#666' }}>Algorithm Performance:</div>
-                  <div className="d-flex gap-3 flex-wrap">
-                    {predictiveInsights.Check_ins?.combined_insights?.best_model && (
-                      <span className="badge bg-primary" style={{ fontSize: 12 }}>
-                        {predictiveInsights.Check_ins.combined_insights.best_model.name}: 
-                        {(predictiveInsights.Check_ins.combined_insights.best_model.accuracy * 100).toFixed(1)}% accuracy
-                      </span>
-                    )}
-                    {predictiveInsights.Conversations?.combined_insights?.best_model && (
-                      <span className="badge bg-success" style={{ fontSize: 12 }}>
-                        {predictiveInsights.Conversations.combined_insights.best_model.name}: 
-                        {(predictiveInsights.Conversations.combined_insights.best_model.accuracy * 100).toFixed(1)}% accuracy
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Trend Analysis */}
-                <div className="mb-3">
-                  <div className="fw-semibold mb-1" style={{ fontSize: 14, color: '#666' }}>Trend Analysis:</div>
-                  <ul className="mb-0" style={{ fontSize: 14, color: '#444', paddingLeft: 18 }}>
-                    {predictiveInsights.overall_insights.trends.map((trend, index) => (
-                      <li key={index}>
-                        <strong>{trend[0]}:</strong> {trend[1]} trend 
-                        {predictiveInsights[trend[0]]?.combined_insights?.trend?.strength && 
-                          ` (strength: ${(predictiveInsights[trend[0]].combined_insights.trend.strength * 100).toFixed(1)}%)`
-                        }
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                {/* Growth Projections */}
-                <div className="mb-3">
-                  <div className="fw-semibold mb-1" style={{ fontSize: 14, color: '#666' }}>Growth Projections (Next 3 Months):</div>
-                  <ul className="mb-0" style={{ fontSize: 14, color: '#444', paddingLeft: 18 }}>
-                    {predictiveInsights.overall_insights.growth_rates.map((growth, index) => (
-                      <li key={index}>
-                        <strong>{growth[0]}:</strong> {(growth[1] * 100).toFixed(1)}% 
-                        {growth[1] > 0 ? ' increase' : ' decrease'} expected
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                {/* AI Recommendations */}
-                <div>
-                  <div className="fw-semibold mb-1" style={{ fontSize: 14, color: '#666' }}>AI Recommendations:</div>
-                  <ul className="mb-0" style={{ fontSize: 14, color: '#444', paddingLeft: 18 }}>
-                    {predictiveInsights.overall_insights.recommendations.map((rec, index) => (
-                      <li key={index}>{rec}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div className="text-muted" style={{ fontSize: 14 }}>
-                Loading predictive analytics...
-              </div>
-            )}
+        ) : (
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 220 }}>
+            <div className="text-center text-muted">
+              <div className="mb-2">No data available</div>
+              <div style={{ fontSize: 14 }}>No data available found for the selected time period.</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       {/* Key Insights section, same style as clinic analytics */}
       <div className="row">
@@ -404,18 +399,34 @@ export default function AdminEngagementsPage() {
           <div className="bg-white rounded-4 shadow-sm p-4" style={{ minHeight: 120 }}>
             <div className="fw-bold mb-2" style={{ fontSize: 18 }}>Key Insights</div>
             <ul className="mb-0" style={{ fontSize: 15, color: '#444', paddingLeft: 18 }}>
-              {engagementData?.summary?.predictive_insights?.key_insights ? (
-                engagementData.summary.predictive_insights.key_insights.map((insight, index) => (
-                  <li key={index}>{insight}</li>
-                ))
-              ) : (
-                <>
-                  <li>Rule-based chatbot conversations are increasing engagement</li>
-                  <li>Daily mood check-ins remain the most popular feature</li>
-                  <li>Students are actively using the "Chat with me" feature</li>
-                  <li>Conversations are leading to better mental health support</li>
-                </>
-              )}
+              {(() => {
+                // Debug logging
+                console.log('Current predictiveInsights:', predictiveInsights);
+                console.log('Key insights from predictiveInsights:', predictiveInsights?.key_insights);
+                console.log('Key insights from engagementData:', engagementData?.summary?.predictive_insights?.key_insights);
+                
+                // Try multiple possible data structures
+                const keyInsights = predictiveInsights?.key_insights || 
+                                   engagementData?.summary?.predictive_insights?.key_insights ||
+                                   null;
+                
+                console.log('Final keyInsights:', keyInsights);
+                
+                if (keyInsights && Array.isArray(keyInsights) && keyInsights.length > 0) {
+                  return keyInsights.map((insight, index) => (
+                    <li key={index}>{insight}</li>
+                  ));
+                } else {
+                  return (
+                    <>
+                      <li>Rule-based chatbot conversations are increasing engagement</li>
+                      <li>Daily mood check-ins remain the most popular feature</li>
+                      <li>Students are actively using the "Chat with me" feature</li>
+                      <li>Conversations are leading to better mental health support</li>
+                    </>
+                  );
+                }
+              })()}
             </ul>
           </div>
         </div>

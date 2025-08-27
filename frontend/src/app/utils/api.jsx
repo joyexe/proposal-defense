@@ -35,9 +35,12 @@ export async function fetchWithAuth(url, options = {}) {
     url = `${BASE_URL}/${url}`;
   }
   let token = localStorage.getItem('token');
-  const defaultHeaders = {
-    'Content-Type': 'application/json',
-  };
+  const defaultHeaders = {};
+  
+  // Only set Content-Type for non-FormData requests
+  if (!options.body || !(options.body instanceof FormData)) {
+    defaultHeaders['Content-Type'] = 'application/json';
+  }
 
   // Get CSRF token first if it's a modifying request
   if (options.method && options.method !== 'GET' && !options.ignoreCSRF) {
@@ -82,6 +85,7 @@ export async function fetchWithAuth(url, options = {}) {
   if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
     config.body = JSON.stringify(config.body);
   }
+  // For FormData, don't modify the body - let the browser handle it
 
   let response = await fetch(url, config);
 
@@ -916,4 +920,40 @@ export const getICD11Stats = async () => {
 // Test backend connectivity
 export const testICD11Backend = async () => {
   return await fetchWithAuth('/api/analytics/test-backend/');
+};
+
+// Generate unified admin PDF report (combines all analytics sections)
+export const generateUnifiedAdminPDFReport = async (timeRange = 12) => {
+  try {
+    const BASE_URL = 'http://127.0.0.1:8080';
+    const url = `${BASE_URL}/api/analytics/admin/generate-unified-pdf-report/`;
+    
+    const response = await fetch(`${url}?months=${timeRange}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('PDF generation failed:', response.status, errorText);
+      throw new Error(errorText || 'Failed to generate unified PDF report');
+    }
+
+    // Check if response is a PDF file
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/pdf')) {
+      return response; // Return the response object for blob handling
+    } else {
+      // Handle JSON error response
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to generate unified PDF report');
+    }
+  } catch (error) {
+    console.error('Error generating unified PDF report:', error);
+    throw new Error('Failed to generate unified PDF report. Please try again.');
+  }
 };

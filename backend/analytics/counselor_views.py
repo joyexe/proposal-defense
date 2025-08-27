@@ -23,7 +23,7 @@ from .predictive_analytics import PredictiveAmietiEngagementAnalytics
 @permission_classes([IsAuthenticated])
 def mental_health_trends(request):
     """Get comprehensive mental health trends data for counselor analytics"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get date range (default to last 6 months)
@@ -518,7 +518,7 @@ def mental_health_trends(request):
 @permission_classes([IsAuthenticated])
 def flagged_keywords(request):
     """Get flagged keywords data for counselor analytics"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get date range (default to last 12 months)
@@ -696,7 +696,7 @@ def flagged_keywords(request):
 @permission_classes([IsAuthenticated])
 def risk_assessment(request):
     """Get risk assessment data for counselor analytics"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get all mental health alerts
@@ -789,7 +789,7 @@ def risk_assessment(request):
 @permission_classes([IsAuthenticated])
 def analytics_summary(request):
     """Get analytics summary for counselor dashboard"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get total mental health diagnoses from completed appointments
@@ -830,7 +830,7 @@ def analytics_summary(request):
 @permission_classes([IsAuthenticated])
 def generate_counselor_pdf_report(request):
     """Generate comprehensive mental health PDF report for counselors"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     try:
@@ -977,7 +977,7 @@ def generate_counselor_pdf_report(request):
 @permission_classes([IsAuthenticated])
 def chatbot_engagement(request):
     """Get chatbot engagement data for counselor analytics"""
-    if request.user.role != 'counselor':
+    if request.user.role not in ['counselor', 'admin']:
         return Response({'error': 'Access denied'}, status=403)
     
     # Get date range (default to last 6 months)
@@ -1113,8 +1113,8 @@ def chatbot_engagement(request):
 @permission_classes([IsAuthenticated])
 def update_counselor_appointment_documentation(request, appointment_id):
     """Update appointment documentation for counselors"""
-    if request.user.role != 'counselor':
-        return Response({'error': 'Only counselors can access this endpoint'}, status=status.HTTP_403_FORBIDDEN)
+    if request.user.role not in ['counselor', 'admin']:
+        return Response({'error': 'Only counselors and administrators can access this endpoint'}, status=status.HTTP_403_FORBIDDEN)
     
     try:
         # Get appointment

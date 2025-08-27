@@ -769,6 +769,224 @@ class AdminCreateUserView(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
 
+class AdminBulkUploadUsersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def check_admin_permission(self, request):
+        if not request.user.is_authenticated or request.user.role != 'admin':
+            return Response(
+                {"error": "Only admin users can perform this action"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return None
+
+    def post(self, request):
+        permission_error = self.check_admin_permission(request)
+        if permission_error: return permission_error
+
+        if 'csv_file' not in request.FILES:
+            return Response(
+                {"error": "CSV file is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        csv_file = request.FILES['csv_file']
+        
+        # Check file extension
+        if not csv_file.name.endswith('.csv'):
+            return Response(
+                {"error": "File must be a CSV file"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            import csv
+            import io
+            from datetime import datetime
+
+            # Read CSV file
+            csv_data = csv_file.read().decode('utf-8')
+            csv_reader = csv.DictReader(io.StringIO(csv_data))
+            
+            # Validate required columns
+            required_columns = ['Name', 'Email', 'Role', 'Grade', 'Section', 'Date of Birth']
+            csv_columns = csv_reader.fieldnames
+            
+            if not csv_columns:
+                return Response(
+                    {"error": "CSV file is empty or invalid"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            missing_columns = [col for col in required_columns if col not in csv_columns]
+            if missing_columns:
+                return Response(
+                    {"error": f"Missing required columns: {', '.join(missing_columns)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            results = {
+                'success': [],
+                'errors': [],
+                'total_processed': 0
+            }
+
+            for row_num, row in enumerate(csv_reader, start=2):  # Start from 2 because row 1 is header
+                try:
+                    # Extract data from CSV row
+                    full_name = row['Name'].strip()
+                    email = row['Email'].strip()
+                    role = row['Role'].strip().lower()
+                    grade = row['Grade'].strip() if row['Grade'] else ''
+                    section = row['Section'].strip() if row['Section'] else ''
+                    date_of_birth = row['Date of Birth'].strip() if row['Date of Birth'] else ''
+
+                    # Validate required fields
+                    if not full_name or not email or not role:
+                        results['errors'].append({
+                            'row': row_num,
+                            'error': 'Name, Email, and Role are required fields'
+                        })
+                        continue
+
+                    # Validate email format
+                    if not email or '@' not in email:
+                        results['errors'].append({
+                            'row': row_num,
+                            'error': 'Invalid email format'
+                        })
+                        continue
+
+                    # Validate role
+                    valid_roles = ['student', 'faculty', 'counselor', 'admin', 'clinic']
+                    if role not in valid_roles:
+                        results['errors'].append({
+                            'row': row_num,
+                            'error': f'Invalid role. Must be one of: {", ".join(valid_roles)}'
+                        })
+                        continue
+
+                    # Check if user already exists
+                    if User.objects.filter(email=email).exists():
+                        results['errors'].append({
+                            'row': row_num,
+                            'error': f'User with email {email} already exists'
+                        })
+                        continue
+
+                    # Parse date of birth if provided
+                    dob = None
+                    if date_of_birth:
+                        try:
+                            # Try different date formats
+                            for date_format in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y/%m/%d']:
+                                try:
+                                    dob = datetime.strptime(date_of_birth, date_format).date()
+                                    break
+                                except ValueError:
+                                    continue
+                            if not dob:
+                                results['errors'].append({
+                                    'row': row_num,
+                                    'error': f'Invalid date format for Date of Birth: {date_of_birth}'
+                                })
+                                continue
+                        except Exception:
+                            results['errors'].append({
+                                'row': row_num,
+                                'error': f'Invalid date format for Date of Birth: {date_of_birth}'
+                            })
+                            continue
+
+                    # Generate username and password
+                    username = generate_username(full_name, role)
+                    password = generate_random_password()
+
+                    # Auto-generate IDs based on role
+                    student_id = ''
+                    faculty_id = ''
+                    
+                    if role == 'student':
+                        student_id = generate_student_id()
+                    elif role == 'faculty':
+                        faculty_id = generate_faculty_id()
+                    elif role == 'counselor':
+                        faculty_id = generate_counselor_id()
+                    elif role == 'admin':
+                        faculty_id = generate_admin_id()
+                    elif role == 'clinic':
+                        faculty_id = generate_clinic_id()
+
+                    # Create user
+                    user = User.objects.create_user(
+                        username=username,
+                        email=email,
+                        full_name=full_name,
+                        role=role,
+                        password=password,
+                        is_active=True,
+                        student_id=student_id,
+                        grade=grade if role == 'student' else '',
+                        section=section if role == 'student' else '',
+                        faculty_id=faculty_id,
+                        dob=dob
+                    )
+                    user.save()
+
+                    # Send email with credentials
+                    email_sent = True
+                    try:
+                        send_credentials_email(user, password)
+                    except Exception as e:
+                        email_sent = False
+                        # Log the warning but don't fail the user creation
+
+                    # Add to success results
+                    results['success'].append({
+                        'row': row_num,
+                        'user': {
+                            'id': user.id,
+                            'username': user.username,
+                            'full_name': user.full_name,
+                            'email': user.email,
+                            'role': user.role,
+                            'student_id': user.student_id,
+                            'grade': user.grade,
+                            'section': user.section,
+                            'faculty_id': user.faculty_id,
+                            'email_sent': email_sent
+                        }
+                    })
+
+                except Exception as e:
+                    results['errors'].append({
+                        'row': row_num,
+                        'error': f'Unexpected error: {str(e)}'
+                    })
+
+                results['total_processed'] += 1
+
+            # Prepare response
+            response_data = {
+                'message': f'Bulk upload completed. Processed {results["total_processed"]} rows.',
+                'total_processed': results['total_processed'],
+                'success_count': len(results['success']),
+                'error_count': len(results['errors']),
+                'success': results['success'],
+                'errors': results['errors']
+            }
+
+            if results['errors']:
+                response_data['message'] += f' {len(results["errors"])} errors occurred.'
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to process CSV file: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 class AdminUserStatusView(APIView):
     permission_classes = [IsAuthenticated]
 

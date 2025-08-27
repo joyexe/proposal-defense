@@ -9,7 +9,9 @@ import {
   faCircle, 
   faEye,
   faReply,
-  faPhone
+  faPhone,
+  faCalendarAlt,
+  faClock
 } from '@fortawesome/free-solid-svg-icons';
 import { 
   getUserProfile, 
@@ -67,6 +69,10 @@ export default function CounselorDashboard() {
   const [followUpChecked, setFollowUpChecked] = useState(false);
   const [isCreatingFollowUp, setIsCreatingFollowUp] = useState(false);
   const [followUpCreated, setFollowUpCreated] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpTime, setFollowUpTime] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   
   const batchSize = 4;
 
@@ -862,6 +868,14 @@ export default function CounselorDashboard() {
     // Reset follow-up checked state, but don't reset followUpCreated
     setFollowUpChecked(false);
     setIsCreatingFollowUp(false);
+    
+    // Reset date and time pickers only if no follow-up was created for this appointment
+    if (!followUpCreated) {
+      setFollowUpDate('');
+      setFollowUpTime('');
+    }
+    setShowDatePicker(false);
+    setShowTimePicker(false);
 
     // Check if a follow-up appointment already exists for this appointment
     if (appointment.risk_level === 'high') {
@@ -996,6 +1010,37 @@ export default function CounselorDashboard() {
     return timeStr;
   };
 
+  // Helper function to format selected date and time for display
+  const formatSelectedDateTime = (date, time) => {
+    if (!date) return '';
+    
+    const dateObj = new Date(date);
+    const dateString = dateObj.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
+    if (time) {
+      return `${dateString} at ${time}`;
+    }
+    
+    return dateString;
+  };
+
+  // Helper function to handle date selection
+  const handleDateSelect = (selectedDate) => {
+    setFollowUpDate(selectedDate);
+    setShowDatePicker(false);
+  };
+
+  // Helper function to handle time selection
+  const handleTimeSelect = (selectedTime) => {
+    setFollowUpTime(selectedTime);
+    setShowTimePicker(false);
+  };
+
   // Function to create follow-up appointment
   const createFollowUpAppointment = async () => {
     if (!selectedAppointment || !followUpChecked) return;
@@ -1057,21 +1102,21 @@ export default function CounselorDashboard() {
                                    fullAppointment.appointmentDate ||
                                    fullAppointment.created_date;
       
-      // Calculate follow-up date (1 week after current appointment)
-      const currentDate = currentAppointmentDate ? new Date(currentAppointmentDate) : new Date();
-      const followUpDate = new Date(currentDate);
-      followUpDate.setDate(followUpDate.getDate() + 7);
+      // Use selected date and time only
+      if (!followUpDate || !followUpTime) {
+        alert('Please select both date and time for the follow-up appointment.');
+        return;
+      }
       
-      const followUpDateString = followUpDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-      
-      // Create follow-up appointment data
+      const followUpDateString = followUpDate;
+      const followUpTimeString = followUpTime;
       
       // Create follow-up appointment data
       const followUpData = {
         client_id: clientId,
         provider_id: providerId,
         date: followUpDateString,
-        time: fullAppointment.time,
+        time: followUpTimeString,
         reason: `Follow-up appointment for mental health assessment - ${selectedMentalHealthDiagnosis?.name || 'High-risk case'}`,
         status: 'upcoming',
         service_type: 'mental'
@@ -1089,8 +1134,10 @@ export default function CounselorDashboard() {
         setAppointments(updatedAppointments);
         
         // Set follow-up as created and uncheck the checkbox
+        // Keep the selected date and time for display
         setFollowUpChecked(false);
         setFollowUpCreated(true);
+        // Don't reset followUpDate and followUpTime - keep them for display
       } else {
         throw new Error('No response ID received from API');
       }
@@ -1105,10 +1152,36 @@ export default function CounselorDashboard() {
 
   // Effect to handle follow-up appointment creation when checkbox is checked
   useEffect(() => {
-    if (followUpChecked && selectedAppointment && selectedMentalHealthDiagnosis?.risk_level === 'high' && !followUpCreated) {
+    if (followUpChecked && selectedAppointment && selectedMentalHealthDiagnosis?.risk_level === 'high' && !followUpCreated && followUpDate && followUpTime) {
       createFollowUpAppointment();
     }
-  }, [followUpChecked]);
+  }, [followUpChecked, followUpDate, followUpTime]);
+
+  // Effect to close date/time pickers when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDatePicker || showTimePicker) {
+        const pickerElements = document.querySelectorAll('[data-picker="date"], [data-picker="time"]');
+        let clickedInside = false;
+        
+        pickerElements.forEach(element => {
+          if (element.contains(event.target)) {
+            clickedInside = true;
+          }
+        });
+        
+        if (!clickedInside) {
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDatePicker, showTimePicker]);
 
   // Detect mental health conditions when modal opens
   useEffect(() => {
@@ -1716,48 +1789,120 @@ export default function CounselorDashboard() {
                                   paddingLeft: '8px',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '8px'
+                                  gap: '8px',
+                                  position: 'relative'
                                 }}>
                                   <input
                                     type="checkbox"
                                     checked={followUpChecked || followUpCreated}
                                     onChange={(e) => setFollowUpChecked(e.target.checked)}
-                                    disabled={followUpCreated}
+                                    disabled={followUpCreated || !followUpDate || !followUpTime}
                                     style={{ margin: 0 }}
                                   />
                                   <span style={{ 
-                                    color: '#dc3545',
+                                    color: (!followUpDate || !followUpTime) ? '#6c757d' : '#dc3545',
                                     fontWeight: '600',
                                     fontSize: '14px'
                                   }}>
-                                    Follow-up Appointment Required: {(() => {
-                                      // Check multiple possible date field names
-                                      const appointmentDate = selectedAppointment.date || 
-                                                            selectedAppointment.appointment_date || 
-                                                            selectedAppointment.scheduled_date ||
-                                                            selectedAppointment.appointmentDate ||
-                                                            selectedAppointment.created_date;
-                                      
-                                      if (appointmentDate) {
-                                        return calculateFollowUpDateTime(appointmentDate, selectedAppointment.time);
-                                      } else {
-                                        // If no date is found, calculate from today's date
-                                        const today = new Date();
-                                        const followUpDate = new Date(today);
-                                        followUpDate.setDate(followUpDate.getDate() + 7);
-                                        
-                                        const dateString = followUpDate.toLocaleDateString('en-US', { 
-                                          weekday: 'long', 
-                                          year: 'numeric', 
-                                          month: 'long', 
-                                          day: 'numeric' 
-                                        });
-                                        
-                                        const timeString = selectedAppointment.time || '7:00 AM';
-                                        return `${dateString} at ${timeString}`;
-                                      }
-                                    })()}
+                                    Follow-up Appointment Required: 
+                                    {followUpDate && followUpTime ? (
+                                      <span style={{ marginLeft: '8px' }}>
+                                        {formatSelectedDateTime(followUpDate, followUpTime)}
+                                      </span>
+                                    ) : (
+                                      <span style={{ marginLeft: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => setShowDatePicker(!showDatePicker)}
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: '4px',
+                                            borderRadius: '4px',
+                                            color: '#dc3545'
+                                          }}
+                                          title="Select Date"
+                                        >
+                                          <FontAwesomeIcon icon={faCalendarAlt} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setShowTimePicker(!showTimePicker)}
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: '4px',
+                                            borderRadius: '4px',
+                                            color: '#dc3545'
+                                          }}
+                                          title="Select Time"
+                                        >
+                                          <FontAwesomeIcon icon={faClock} />
+                                        </button>
+                                        <span style={{ fontSize: '12px', color: '#6c757d', fontStyle: 'italic' }}>
+                                          (Select date and time to enable checkbox)
+                                        </span>
+                                      </span>
+                                    )}
                                   </span>
+                                  {showDatePicker && (
+                                    <div 
+                                      data-picker="date"
+                                      style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: '0',
+                                        zIndex: 1000,
+                                        background: 'white',
+                                        border: '1px solid #ccc',
+                                        borderRadius: '4px',
+                                        padding: '8px',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                      }}
+                                    >
+                                      <input
+                                        type="date"
+                                        value={followUpDate}
+                                        onChange={(e) => handleDateSelect(e.target.value)}
+                                        style={{
+                                          border: '1px solid #ccc',
+                                          borderRadius: '4px',
+                                          padding: '4px 8px',
+                                          fontSize: '14px'
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  {showTimePicker && (
+                                    <div 
+                                      data-picker="time"
+                                      style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: '0',
+                                        zIndex: 1000,
+                                        background: 'white',
+                                        border: '1px solid #ccc',
+                                        borderRadius: '4px',
+                                        padding: '8px',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                      }}
+                                    >
+                                      <input
+                                        type="time"
+                                        value={followUpTime}
+                                        onChange={(e) => handleTimeSelect(e.target.value)}
+                                        style={{
+                                          border: '1px solid #ccc',
+                                          borderRadius: '4px',
+                                          padding: '4px 8px',
+                                          fontSize: '14px'
+                                        }}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>

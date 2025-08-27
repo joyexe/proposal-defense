@@ -53,6 +53,10 @@ class Appointment(models.Model):
     faculty_viewed_at = models.DateTimeField(null=True, blank=True)
     clinic_viewed_at = models.DateTimeField(null=True, blank=True)
     counselor_viewed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Reminder notification tracking fields
+    client_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    provider_reminder_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-date', '-time']
